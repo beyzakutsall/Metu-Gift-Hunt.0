@@ -1,0 +1,54 @@
+# main'e her push'ta siteyi GitHub Pages'e yayınlar:
+#   https://<kullanıcı>.github.io/<repo>/            uygulama (deneme modu: sunucu yok, giriş/kayıt sahte)
+#   https://<kullanıcı>.github.io/<repo>/3d-harita/deneme.html   3D harita
+# İlk kurulum: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  derle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # Pages yalnızca statik dosya sunar; arayüz sunucusuz "mock" modunda derlenir.
+      # --base: site /<repo>/ alt klasöründen açılır.
+      - run: npm run build -w frontend -- --mode mock --base "/${{ github.event.repository.name }}/"
+      - name: Haritayı ve 404 sayfasını ekle
+        run: |
+          cp -r 3d-harita frontend/dist/3d-harita
+          # Pages bilinmeyen adreste 404.html verir; uygulamanın kendisi olunca
+          # /login gibi sayfalar yenilenince de açılır
+          cp frontend/dist/index.html frontend/dist/404.html
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: frontend/dist
+
+  yayinla:
+    needs: derle
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.yayin.outputs.page_url }}
+    steps:
+      - id: yayin
+        uses: actions/deploy-pages@v5
