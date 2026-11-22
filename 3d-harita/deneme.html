@@ -105,7 +105,8 @@
       harita.gpsKonumu(k);
       hediyeleriYenile();
       odaklanDugmesi.disabled = takipDugmesi.disabled = false;
-      goster(kampusteMi(k) ? `Konum ±${Math.round(k.dogruluk)} m` : `Kampüs dışındasın (±${Math.round(k.dogruluk)} m)`);
+      const sahte = parametre.get('konum') === 'sahte' ? 'SAHTE konum (Kütüphane çevresi, deneme için)' : 'Konum';
+      goster(kampusteMi(k) ? `${sahte} ±${Math.round(k.dogruluk)} m` : `Kampüs dışındasın (±${Math.round(k.dogruluk)} m)`);
     }
 
     let durdur = null;
