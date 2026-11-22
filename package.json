@@ -1,0 +1,12 @@
+{
+  "name": "metu-gift-hunt",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "derle": "node araclar/derle.mjs",
+    "test": "node --test \"testler/*.test.mjs\""
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
