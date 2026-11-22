@@ -3,9 +3,19 @@ import helmet from 'helmet'
 import type pg from 'pg'
 import { createAuthRoutes } from './authRoutes.js'
 import { createAuthService } from './authService.js'
+import { createCollectionRoutes } from './collectionRoutes.js'
+import { createCollectionService } from './collectionService.js'
 import { AppError } from './errors.js'
+import { createGiftRoutes } from './giftRoutes.js'
+import { createGiftService } from './giftService.js'
 import type { Mailer } from './mailer.js'
+import { createHuntRoutes } from './huntRoutes.js'
+import { createHuntService } from './huntService.js'
+import { createNotificationHub } from './notificationHub.js'
+import { createNotificationRoutes } from './notificationRoutes.js'
+import { createNotificationService } from './notificationService.js'
 import { createRateLimiter } from './rateLimit.js'
+import { createRequireUser } from './requireUser.js'
 import { createSessionCookie } from './sessionCookie.js'
 import { createStudentRoutes } from './studentRoutes.js'
 import { createStudentService } from './studentService.js'
@@ -24,6 +34,8 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
   const auth = createAuthService(pool, mailer, limiter, appUrl)
 
   const cookie = createSessionCookie(secureCookies)
+  const requireUser = createRequireUser(auth, cookie)
+  const hub = createNotificationHub()
 
   app.set('trust proxy', trustProxy)
   app.use(helmet())
@@ -39,6 +51,8 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
     }
     next()
   })
+  // Before the global parser: one hunt route takes a photo, and sets its own limit.
+  app.use('/api/hunts', createHuntRoutes(requireUser, createHuntService(pool), limiter))
   app.use(express.json({ limit: '10kb' }))
 
   app.get('/api/health', async (_req, res) => {
@@ -46,7 +60,10 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
     res.json({ status: 'ok' })
   })
   app.use('/api/auth', createAuthRoutes(auth, limiter, cookie))
-  app.use('/api/student', createStudentRoutes(auth, createStudentService(pool), cookie))
+  app.use('/api/student', createStudentRoutes(requireUser, createStudentService(pool)))
+  app.use('/api/collection', createCollectionRoutes(requireUser, createCollectionService(pool)))
+  app.use('/api/gifts', createGiftRoutes(requireUser, createGiftService(pool, hub), limiter))
+  app.use('/api/notifications', createNotificationRoutes(requireUser, createNotificationService(pool), hub))
   app.use(() => {
     throw new AppError(404, 'NOT_FOUND', 'Not found.')
   })
@@ -54,6 +71,8 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
   const handleError: ErrorRequestHandler = (error, _req, res, _next) => {
     if (error instanceof AppError) {
       res.status(error.status).json({ error: { code: error.code, message: error.message, ...error.details } })
+    } else if (error.status === 413) {
+      res.status(413).json({ error: { code: 'TOO_LARGE', message: 'That’s too large. Try a smaller photo or shorter text.' } })
     } else if (error.status >= 400 && error.status < 500) {
       res.status(error.status).json({ error: { code: 'BAD_REQUEST', message: 'That request could not be read.' } })
     } else {

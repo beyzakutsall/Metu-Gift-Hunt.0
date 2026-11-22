@@ -34,7 +34,9 @@ jobs:
       - run: npm run build -w frontend -- --mode mock --base "/${{ github.event.repository.name }}/"
       - name: Haritayı ve 404 sayfasını ekle
         run: |
-          cp -r 3d-harita frontend/dist/3d-harita
+          # derleme bu klasörü zaten oluşturur; içeriği kopyalanır ki iç içe geçmesin
+          mkdir -p frontend/dist/3d-harita
+          cp -r 3d-harita/. frontend/dist/3d-harita/
           # Pages bilinmeyen adreste 404.html verir; uygulamanın kendisi olunca
           # /login gibi sayfalar yenilenince de açılır
           cp frontend/dist/index.html frontend/dist/404.html

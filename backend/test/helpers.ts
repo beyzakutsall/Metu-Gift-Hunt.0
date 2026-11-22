@@ -30,6 +30,7 @@ before(async () => {
 })
 
 beforeEach(async () => {
+  server?.closeAllConnections()
   server?.close()
   await pool.query('TRUNCATE users, pending_registrations, sessions, password_resets CASCADE')
   outbox = []
@@ -69,9 +70,6 @@ export const register = (overrides: object = {}) =>
 
 export const lastToken = () => /#token=([\w-]+)/.exec(outbox.at(-1)!.text)![1]!
 
-export async function createUser(overrides: object = {}) {
-  await register(overrides)
-  return post('verify-email', { token: lastToken(), password })
-}
+export const createUser = register
 
 export const clearOutbox = () => void outbox.splice(0)

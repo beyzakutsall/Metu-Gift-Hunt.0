@@ -12,6 +12,8 @@ export function Terms() {
           <li>Campus Quest is a student project and is not an official METU service.</li>
           <li>Register with your own METU email and keep your password private.</li>
           <li>We store your username, email, a password hash and the time you accepted these terms.</li>
+          <li>We store gifts you hide and photos you send as proof. The student who hid the gift can see your photo.</li>
+          <li>While you search, your location is checked to unlock clues. Positions are not saved.</li>
           <li>Respect other students, campus property and restricted areas.</li>
         </ul>
         <ButtonLink to="/register" variant="secondary">Back to registration</ButtonLink>

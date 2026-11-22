@@ -1,10 +1,11 @@
 import { LogOut } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/authState'
 import { useForm } from '../../hooks/useForm'
 import { authService } from '../../services/authService'
 import { Brand } from '../auth/Brand'
 import { Alert } from '../common/Alert'
 import { Button } from '../common/Button'
+import { NotificationBell } from '../notifications/NotificationBell'
 
 export function StudentHeader() {
   const { user, setUser } = useAuth()
@@ -14,16 +15,17 @@ export function StudentHeader() {
   })
 
   return (
-    <header className="bg-mint">
+    <header className="relative z-20 bg-mint">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-gutter py-3 sm:px-8">
-        <Brand />
-        <div className="flex min-w-0 items-center gap-3">
+        <Brand compact />
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <p className="hidden min-w-0 items-center gap-2 text-caption font-bold md:flex">
             <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-lilac font-display uppercase">
               {user?.username[0]}
             </span>
             <span className="truncate">{user?.username}</span>
           </p>
+          <NotificationBell />
           <form onSubmit={form.submit}>
             <Button type="submit" variant="secondary" loading={form.busy} aria-label="Log out" className="min-w-12 px-3!">
               {!form.busy && <LogOut className="size-5" aria-hidden />}

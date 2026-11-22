@@ -23,17 +23,11 @@ export interface DeliveryResult {
   devLink?: string
 }
 
-export interface Registration extends DeliveryResult {
-  registrationId: string
-  email: string
-}
-
 /** The UI depends only on this contract. */
 export interface AuthService {
   getSession(): Promise<User | null>
-  register(input: RegisterInput): Promise<Registration>
-  resendVerification(registrationId: string): Promise<DeliveryResult>
-  verifyEmail(token: string, password: string): Promise<User>
+  /** Creates the account and signs in. */
+  register(input: RegisterInput): Promise<User>
   login(input: LoginInput): Promise<User>
   logout(): Promise<void>
   forgotPassword(email: string): Promise<DeliveryResult>
@@ -45,7 +39,6 @@ export class AuthError extends Error {
     readonly code: string,
     message: string,
     readonly field?: string,
-    readonly registrationId?: string,
   ) {
     super(message)
   }

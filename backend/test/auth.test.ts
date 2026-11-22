@@ -36,63 +36,31 @@ test('registration validates every field on the server', async () => {
   assert.equal(outbox.length, 0)
 })
 
-test('register, verify, and get a session', async () => {
-  assert.equal((await register({ email: 'E123456@METU.EDU.TR' })).status, 202)
-  assert.equal((await pool.query('SELECT 1 FROM users')).rowCount, 0)
-
-  const verified = await post('verify-email', { token: lastToken(), password })
-  assert.equal(verified.status, 200)
-  assert.equal(verified.data.user.email, 'e123456@metu.edu.tr')
-  assert.match(verified.setCookie, /HttpOnly/)
-  assert.match(verified.setCookie, /SameSite=Lax/)
-  assert.equal((await sessionUser(verified.cookie)).username, 'explorer')
+test('registering creates the account and signs in, with no email', async () => {
+  const result = await register({ email: ' E123456@METU.EDU.TR ' })
+  assert.equal(result.status, 201)
+  assert.deepEqual(Object.keys(result.data.user).sort(), ['email', 'id', 'username'])
+  assert.equal(result.data.user.email, 'e123456@metu.edu.tr')
+  assert.match(result.setCookie, /HttpOnly/)
+  assert.match(result.setCookie, /SameSite=Lax/)
+  assert.doesNotMatch(result.setCookie, /Max-Age/)
+  assert.equal((await sessionUser(result.cookie)).username, 'explorer')
+  assert.equal((await login()).status, 200)
+  assert.equal(outbox.length, 0)
 })
 
-test('no plaintext password or token is stored', async () => {
-  await register()
-  const row = JSON.stringify((await pool.query('SELECT * FROM pending_registrations')).rows)
-  assert.ok(!row.includes(password))
-  assert.ok(!row.includes(lastToken()))
+test('no plaintext password or session token is stored', async () => {
+  const { cookie } = await register()
+  const rows = JSON.stringify([
+    (await pool.query('SELECT * FROM users')).rows,
+    (await pool.query('SELECT * FROM sessions')).rows,
+  ])
+  assert.ok(!rows.includes(password))
+  assert.ok(!rows.includes(cookie.split('=')[1]!))
 })
 
-test('a link alone cannot activate an account registered by someone else', async () => {
-  await register({ password: 'attacker password' })
-  const result = await post('verify-email', { token: lastToken(), password })
-  assert.equal(result.data.error.code, 'WRONG_PASSWORD')
-  assert.equal((await pool.query('SELECT 1 FROM users')).rowCount, 0)
-})
-
-test('verification links work once and expire', async () => {
-  await register()
-  const token = lastToken()
-  await pool.query("UPDATE pending_registrations SET expires_at = now() - interval '1 second'")
-  assert.equal((await post('verify-email', { token, password })).status, 400)
-  await pool.query("UPDATE pending_registrations SET expires_at = now() + interval '1 hour'")
-  assert.equal((await post('verify-email', { token, password })).status, 200)
-  assert.equal((await post('verify-email', { token, password })).status, 400)
-})
-
-test('two simultaneous verifications create one user', async () => {
-  await register()
-  const token = lastToken()
-  const results = await Promise.all([1, 2].map(() => post('verify-email', { token, password })))
-  assert.deepEqual(results.map((result) => result.status).sort(), [200, 400])
-})
-
-test('resending replaces the old link', async () => {
-  const { data } = await register()
-  const old = lastToken()
-  assert.equal((await post('resend-verification', { registrationId: data.registrationId })).status, 202)
-  assert.equal((await post('verify-email', { token: old, password })).status, 400)
-  assert.equal((await post('verify-email', { token: lastToken(), password })).status, 200)
-})
-
-test('unverified login is explained only to someone with the password', async () => {
-  const { data } = await register()
-  const right = await login()
-  assert.equal(right.status, 403)
-  assert.equal(right.data.error.registrationId, data.registrationId)
-  assert.equal((await login({ password: 'wrong password' })).status, 401)
+test('the verification endpoints are gone', async () => {
+  for (const path of ['verify-email', 'resend-verification']) assert.equal((await post(path, {})).status, 404)
 })
 
 test('wrong password and unknown email look identical', async () => {
@@ -103,23 +71,34 @@ test('wrong password and unknown email look identical', async () => {
   assert.deepEqual(wrong.data, unknown.data)
 })
 
-test('registering an existing email does not reveal the account', async () => {
+test('an existing email is refused and left untouched', async () => {
   await createUser()
-  const existing = await register({ username: 'someone_else' })
-  const fresh = await register({ username: 'newcomer', email: 'new@metu.edu.tr' })
-  assert.equal(existing.status, fresh.status)
-  assert.deepEqual(Object.keys(existing.data).sort(), Object.keys(fresh.data).sort())
-  assert.match(outbox.at(-2)!.subject, /already have/)
+  const again = await register({ username: 'someone_else', email: 'E123456@metu.edu.tr', password: 'attacker password' })
+  assert.equal(again.status, 409)
+  assert.equal(again.data.error.code, 'EMAIL_TAKEN')
+  assert.equal(again.data.error.field, 'email')
+  assert.equal(again.setCookie, '')
+  assert.equal((await login()).status, 200)
+  assert.equal((await login({ password: 'attacker password' })).status, 401)
 })
 
 test('usernames are unique regardless of case', async () => {
   await register({ email: 'first@metu.edu.tr' })
-  const first = lastToken()
-  await register({ username: 'EXPLORER', email: 'second@metu.edu.tr' })
-  const second = lastToken()
-  assert.equal((await post('verify-email', { token: first, password })).status, 200)
-  assert.equal((await post('verify-email', { token: second, password })).status, 409)
-  assert.equal((await register({ username: 'Explorer', email: 'third@metu.edu.tr' })).data.error.field, 'username')
+  const second = await register({ username: 'EXPLORER', email: 'second@metu.edu.tr' })
+  assert.equal(second.status, 409)
+  assert.equal(second.data.error.field, 'username')
+})
+
+test('simultaneous registrations create one account', async () => {
+  const results = await Promise.all([1, 2, 3, 4].map((n) => register({ username: `student_${n}` })))
+  assert.deepEqual(results.map((result) => result.status).sort(), [201, 409, 409, 409])
+  assert.equal((await pool.query('SELECT 1 FROM users')).rowCount, 1)
+  assert.equal((await pool.query('SELECT 1 FROM sessions')).rowCount, 1)
+})
+
+test('cross-origin registration is refused', async () => {
+  const body = { username: 'explorer', email: 'e123456@metu.edu.tr', password, acceptTerms: true }
+  assert.equal((await post('register', body, { origin: 'https://evil.example' })).status, 403)
 })
 
 test('remember me controls how long the cookie lasts', async () => {
@@ -170,9 +149,12 @@ test('cross-origin and non-JSON writes are refused', async () => {
   assert.equal((await post('logout', {}, { origin: appUrl })).status, 204)
 })
 
-test('login guessing and email flooding are rate limited', async () => {
+test('login guessing, registering and reset emails are rate limited', async () => {
   for (let i = 0; i < 10; i++) assert.equal((await login({ password: 'wrong password' })).status, 401)
   assert.equal((await login({ password: 'wrong password' })).status, 429)
-  for (let i = 0; i < 5; i++) assert.equal((await register()).status, 202)
+  for (let i = 0; i < 20; i++) assert.notEqual((await register()).status, 429)
   assert.equal((await register()).status, 429)
+  const forgot = () => post('forgot-password', { email: 'e123456@metu.edu.tr' })
+  for (let i = 0; i < 5; i++) assert.equal((await forgot()).status, 202)
+  assert.equal((await forgot()).status, 429)
 })

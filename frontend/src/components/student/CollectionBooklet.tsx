@@ -1,17 +1,33 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
-import type { CollectionItem } from '../../types/student'
+import type { CollectionItem, FoundItem } from '../../types/student'
+import { GiftDiscovery } from '../discovery/GiftDiscovery'
+import { Button } from '../common/Button'
 import { CHAPTERS } from './chapters'
-import { StickerCard } from './StickerCard'
+import { CollectibleCard } from './CollectibleCard'
 
 const arrow =
   'grid size-11 place-items-center rounded-full border border-edge bg-surface transition hover:bg-mint aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:bg-surface'
 
-export function CollectionBooklet({ items }: { items: CollectionItem[] }) {
+interface Props {
+  items: CollectionItem[]
+  /** A gift just unlocked: the booklet opens on it. */
+  highlight?: Pick<CollectionItem, 'id' | 'chapter'>
+}
+
+export function CollectionBooklet({ items, highlight }: Props) {
   // An open book on wide screens, one page at a time on narrow ones.
   const pagesShown = useMediaQuery('(min-width: 64rem)') ? 2 : 1
-  const [selected, setSelected] = useState(0)
+  const [selected, setSelected] = useState(() =>
+    Math.max(0, CHAPTERS.findIndex((chapter) => chapter.id === highlight?.chapter)),
+  )
+  const [viewing, setViewing] = useState<{ item: FoundItem & { foundAt: string }; from: DOMRect }>()
+  const book = useRef<HTMLDivElement>(null)
+  const highlightId = highlight?.id
+  useEffect(() => {
+    if (highlightId) book.current?.querySelector('[data-new]')?.scrollIntoView({ block: 'center' })
+  }, [highlightId])
 
   const first = selected - (selected % pagesShown)
   const visible = CHAPTERS.slice(first, first + pagesShown)
@@ -26,7 +42,7 @@ export function CollectionBooklet({ items }: { items: CollectionItem[] }) {
           <h2 id="booklet-title" className="text-title">
             My collection booklet
           </h2>
-          <p className="text-ink-soft">Every sticker stays a mystery until you find it.</p>
+          <p className="text-ink-soft">Find a gift to unlock it, then tap it to explore it in 3D.</p>
         </div>
         <div className="flex items-center gap-2">
           {/* aria-disabled keeps keyboard focus on the arrow at the first and last page */}
@@ -73,11 +89,11 @@ export function CollectionBooklet({ items }: { items: CollectionItem[] }) {
         })}
       </nav>
 
-      <div className="mt-2 rounded-card bg-forest p-2 shadow-book sm:mt-0 sm:p-3">
+      <div ref={book} className="mt-2 rounded-card bg-forest p-2 shadow-book sm:mt-0 sm:p-3">
         <div key={first} className="relative grid animate-page-turn lg:grid-cols-2">
           {visible.map(({ id, title, subtitle, color }, index) => {
-            const stickers = items.filter((item) => item.chapter === id)
-            const found = stickers.filter((item) => item.foundAt !== null).length
+            const collectibles = items.filter((item) => item.chapter === id)
+            const found = collectibles.filter((item) => item.foundAt !== null).length
             return (
               <article
                 key={id}
@@ -92,13 +108,19 @@ export function CollectionBooklet({ items }: { items: CollectionItem[] }) {
                     <p className="text-caption text-ink-soft">{subtitle}</p>
                   </div>
                   <p className={`shrink-0 rounded-full px-3 py-1 text-caption font-bold ${color}`}>
-                    {found} / {stickers.length}
+                    {found} / {collectibles.length}
                     <span className="sr-only"> found</span>
                   </p>
                 </div>
                 <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                  {stickers.map((item) => (
-                    <StickerCard key={item.id} item={item} color={color} />
+                  {collectibles.map((item) => (
+                    <CollectibleCard
+                      key={item.id}
+                      item={item}
+                      color={color}
+                      isNew={item.id === highlightId}
+                      onView={(found, from) => setViewing({ item: found, from })}
+                    />
                   ))}
                 </ul>
               </article>
@@ -113,6 +135,12 @@ export function CollectionBooklet({ items }: { items: CollectionItem[] }) {
           </div>
         </div>
       </div>
+
+      {viewing && (
+        <GiftDiscovery item={viewing.item} from={viewing.from} onClose={() => setViewing(undefined)}>
+          <Button onClick={() => setViewing(undefined)}>Back to my booklet</Button>
+        </GiftDiscovery>
+      )}
     </section>
   )
 }

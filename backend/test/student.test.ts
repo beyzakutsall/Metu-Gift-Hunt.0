@@ -23,22 +23,21 @@ test('the profile requires a session', async () => {
   assert.equal((await getProfile(cookie)).status, 401)
 })
 
-test('a new student has 24 locked items and no activity', async () => {
+test('a new student has 18 locked items and no activity', async () => {
   const { cookie } = await createUser()
   const { data, cache } = await getProfile(cookie)
   assert.equal(cache, 'no-store')
   assert.deepEqual(data.searches, { today: 0, limit: 2, total: 0 })
   assert.deepEqual(data.hides, { today: 0, limit: 3, total: 0 })
-  assert.equal(data.items.length, 24)
+  assert.equal(data.items.length, 18)
   assert.ok(data.items.every((item: any) => item.foundAt === null))
 })
 
-test('locked items never reveal a name or emoji', async () => {
+test('locked items never reveal a name, model or credit', async () => {
   const { cookie } = await createUser()
   const body = JSON.stringify((await getProfile(cookie)).data)
-  for (const { name, emoji } of (await pool.query('SELECT name, emoji FROM collection_items')).rows) {
-    assert.ok(!body.includes(name), name)
-    assert.ok(!body.includes(emoji), emoji)
+  for (const { name, credit } of (await pool.query('SELECT name, credit FROM collection_items WHERE active')).rows) {
+    for (const secret of [name, credit.title, credit.author, credit.source]) assert.ok(!body.includes(secret), secret)
   }
 })
 
@@ -47,7 +46,8 @@ test('finding an item unlocks only that item', async () => {
   await pool.query('INSERT INTO user_collection (user_id, item_id) VALUES ($1, 3)', [data.user.id])
   const found = (await getProfile(cookie)).data.items.filter((item: any) => item.foundAt)
   assert.equal(found.length, 1)
-  assert.equal(found[0].name, 'Night Owl')
+  assert.equal(found[0].name, 'Sweetheart Cat')
+  assert.equal(found[0].credit.author, 'Sabrina Zakir')
 })
 
 test('today and all-time counts are separate', async () => {

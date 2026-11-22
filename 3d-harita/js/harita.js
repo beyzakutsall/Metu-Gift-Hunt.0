@@ -44,6 +44,7 @@ const OLAYLAR = ['hazir', 'hata', 'hediye-tiklandi'];
  * @param {boolean} [secenekler.atif=true] Sağ alt köşede OSM ve model atfını göster (lisans gereği zorunlu;
  *   kapatırsanız atfı sayfanızda başka bir yerde gösterin).
  * @param {boolean} [secenekler.ilkKonumdaOdaklan=true] İlk GPS konumu gelince kamera oyuncuya uçsun.
+ * @param {Function} [secenekler.eklenti] Sahne kurulunca, 'hazir' olayından önce çağrılır; { guncelle?, yokEt? } dönebilir (bkz. api.js).
  */
 export function haritaBaslat(kapsayici, secenekler = {}) {
   if (!(kapsayici instanceof HTMLElement)) {
@@ -116,7 +117,7 @@ export function haritaBaslat(kapsayici, secenekler = {}) {
   const kamera = new THREE.PerspectiveCamera(50, 1, 0.5, 4000);
   const katman = oyunKatmaniOlustur(GOK_RENGI);
   sahne.add(katman.grup);
-  let kontroller = null, etiketler = null, agaclar = null, nesneler = null;
+  let kontroller = null, etiketler = null, agaclar = null, nesneler = null, ek = null;
 
   let genislik = 0, yukseklik = 0;
   function boyutla() {
@@ -197,7 +198,8 @@ export function haritaBaslat(kapsayici, secenekler = {}) {
 
     const anizotropi = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     const izgara = zeminIzgarasiOlustur(osm);
-    sahne.add(zeminOlustur(izgara, zeminDokulariniOlustur(anizotropi), GOK_RENGI));
+    const zeminNesnesi = zeminOlustur(izgara, zeminDokulariniOlustur(anizotropi), GOK_RENGI);
+    sahne.add(zeminNesnesi);
 
     const binaIzgarasi = binaIzgarasiOlustur(osm);
     const binalar = binalariOlustur(binaIzgarasi, binaDokulariniOlustur(anizotropi), GOK_RENGI);
@@ -229,6 +231,13 @@ export function haritaBaslat(kapsayici, secenekler = {}) {
     const b = enlemBoylamdanBloga(baslangic.enlem, baslangic.boylam);
     kontroller = kameraKontrolleriniKur(kamera, tuval, new THREE.Vector3(b.x, 0, b.z));
     kontroller.enablePan = !takip;
+    if (secenekler.eklenti) {
+      ek = await secenekler.eklenti({
+        osm, izgara, binaIzgarasi, kisaAdlar, adliBinalar, sahne, kamera, kontroller, tuval, zeminNesnesi, binalar, veriAdresi,
+        hediyeBul: katman.hediyeBul
+      });
+      if (durum === 'kapandi') { ek?.yokEt?.(); sahneyiTemizle(); return; }
+    }
 
     durum = 'hazir';
     if (yaziKutusu) yaziKutusu.hidden = true;
@@ -249,6 +258,7 @@ export function haritaBaslat(kapsayici, secenekler = {}) {
     agaclar.userData.guncelle(saniye);   // ışıkların yanıp sönmesi
     nesneler.userData.guncelle(saniye);  // lambalar gece yanar
     katman.guncelle(dt, saniye);
+    ek?.guncelle?.(saniye);
     kameraGuncelle(dt);
     kontroller.update();
     etiketler.userData.guncelle(kamera, genislik, yukseklik); // yakında solar, çakışan gizlenir
@@ -383,6 +393,7 @@ export function haritaBaslat(kapsayici, secenekler = {}) {
       tuval?.removeEventListener('pointerdown', asagi);
       tuval?.removeEventListener('pointerup', yukari);
       kontroller?.dispose();
+      ek?.yokEt?.();
       sahneyiTemizle();
       if (renderer) {
         renderer.dispose();

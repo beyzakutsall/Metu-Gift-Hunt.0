@@ -27,6 +27,8 @@ export interface HaritaSecenekleri {
   atif?: boolean;
   /** İlk GPS konumunda kamera oyuncuya uçsun (varsayılan true) */
   ilkKonumdaOdaklan?: boolean;
+  /** Sahne kurulunca, 'hazir'dan önce çağrılır (bkz. api.js). */
+  eklenti?: (baglam: any) => Promise<{ guncelle?(saniye: number): void; yokEt?(): void } | void>;
 }
 
 export interface HaritaOlaylari {

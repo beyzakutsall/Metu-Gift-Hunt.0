@@ -3,7 +3,7 @@ export class AppError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
-    readonly details: { field?: string; registrationId?: string } = {},
+    readonly details: { field?: string } = {},
   ) {
     super(message)
   }

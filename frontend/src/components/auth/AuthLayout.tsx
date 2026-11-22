@@ -19,7 +19,7 @@ export function AuthLayout() {
               <span className="text-forest">Build your collection.</span>
             </p>
             <p className="mt-4 max-w-md text-ink-soft xl:text-lg">
-              A campus adventure for METU students. Find hidden stickers, fill your book and leave a little something for
+              A campus adventure for METU students. Find hidden gifts, fill your book and leave a little something for
               the next explorer.
             </p>
           </div>
