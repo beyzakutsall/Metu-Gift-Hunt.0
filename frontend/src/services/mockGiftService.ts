@@ -1,5 +1,5 @@
 import { DAILY_LIMITS } from '../../../shared/gameRules'
-import { cleanNote } from '../../../shared/giftRules'
+import { cleanText, splitAnswers } from '../../../shared/giftRules'
 import { AuthError } from '../types/auth'
 import type { Gift, GiftService } from '../types/gift'
 import { authService } from './authService'
@@ -13,9 +13,14 @@ async function currentUserId() {
 
 export function createMockGiftService(): GiftService {
   return {
+    async addPuzzle(id, { clue, riddle, answer }) {
+      const gift = mockState.gifts.get(await currentUserId())!.find((item) => item.id === id)!
+      return Object.assign(gift, { clue, riddle, answers: splitAnswers(answer) })
+    },
+
     listMine: async () => [...(mockState.gifts.get(await currentUserId()) ?? [])],
 
-    async hide({ requestId, latitude, longitude, note }) {
+    async hide({ requestId, latitude, longitude, note, clue, riddle, answer }) {
       const userId = await currentUserId()
       await new Promise((resolve) => setTimeout(resolve, 500))
       const gifts = mockState.gifts.get(userId) ?? []
@@ -24,7 +29,14 @@ export function createMockGiftService(): GiftService {
         throw new AuthError('DAILY_LIMIT', 'You’ve hidden all of today’s gifts. Come back after midnight.')
       }
       const createdAt = new Date().toISOString()
-      const gift: Gift = { id: requestId, latitude, longitude, note: cleanNote(note), createdAt }
+      const gift: Gift = {
+        id: requestId, latitude, longitude, createdAt, clue, riddle,
+        note: cleanText(note),
+        answers: splitAnswers(answer),
+        locationName: 'Selected building',
+        foundAt: null,
+        photoUrl: null,
+      }
       mockState.gifts.set(userId, [gift, ...gifts])
 
       const event = { id: mockState.notifications.length + 1, createdAt, mine: true }

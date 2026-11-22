@@ -1,5 +1,5 @@
 import { LogOut } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/authState'
 import { useForm } from '../../hooks/useForm'
 import { authService } from '../../services/authService'
 import { Brand } from '../auth/Brand'

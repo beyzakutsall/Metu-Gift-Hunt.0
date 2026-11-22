@@ -39,7 +39,8 @@ Use `localhost:5173` rather than `127.0.0.1:5173`: the API checks the request or
 ```
 shared/authRules.ts        validation used by browser and API
 shared/gameRules.ts        daily search and hide limits
-shared/giftRules.ts        note rules and placement messages
+shared/giftRules.ts        hiding rules and placement messages
+shared/huntRules.ts        search radii, time and attempt limits
 3d-harita/                 the 3D map, plain ES modules
   js/api.js                the app's only door into the map
   js/harita.js             the map engine
@@ -52,6 +53,9 @@ backend/
   src/authService.ts       auth rules and queries
   src/studentService.ts    booklet and activity counts
   src/giftService.ts       hiding gifts
+  src/huntService.ts       assigning, checking in, solving
+  src/answers.ts           forgiving answer matching
+  src/photo.ts             safe re-encoding of photo proof
   src/notification*.ts     notification list and live stream
   src/security.ts          password and token hashing
   src/mailer.ts            SMTP, or terminal output in development
@@ -61,6 +65,7 @@ frontend/src/
   components/common/       Button, Input, Checkbox, Alert, PageHeading
   components/auth/         layout, forms, illustration
   components/map/          map frame and hide form
+  components/hunt/         search, clue, riddle, photo
   components/notifications/ bell and toast
   components/student/      booklet, stickers, daily counters
   pages/                   one file per screen
@@ -68,7 +73,7 @@ frontend/src/
   services/authService.ts  chooses the real or mock implementation
 ```
 
-To change the schema, add a new file such as `004_search.sql`. Never edit a migration that has been applied.
+To change the schema, add a new file such as `005_reports.sql`. Never edit a migration that has been applied.
 
 ## How authentication works
 
@@ -97,12 +102,16 @@ counts, the next reset time and the booklet.
 
 ## Hiding gifts
 
-`/hide` shows the map. A student taps a place, writes a note (up to 200 characters) and submits. The server then,
-in one transaction, uses a daily slot, saves the gift with a randomly drawn sticker and records a notification.
+`/hide` shows the map. A student chooses a main location, then writes a clue, a riddle, the accepted answer and a
+note for the finder. The server then, in one transaction, uses a daily slot, saves the gift with a randomly drawn
+sticker and records a notification.
 
-- **Allowed places:** inside the campus boundary, and not on military land, a construction site, a building, a car
-  road or water. The server runs `3d-harita/js/yerlesim.js` on the map's data, so deploy the backend together with
-  the `3d-harita` folder.
+- **Allowed places:** inside a building listed in `3d-harita/data/hediye-binalari.json`, or up to 75 m from one.
+  Never off campus, in another building, on a car road or water, in Teknokent, or next to dorms, schools and
+  sensitive sites. The server runs `3d-harita/js/yerlesim.js` on the map's data, so deploy the backend together
+  with the `3d-harita` folder.
+- **Opening a building:** add it to `hediye-binalari.json` and restart the API. Students will walk in and take
+  photos, so list only buildings open to every student. A name in `bina-adlari.json` doesn't open a building.
 - **Secrets:** students can list only their own gifts. The sticker inside is never sent to a browser.
 - **Map limit:** the map ends at latitude 39.903 (`SINIR` in `projeksiyon.js`) and the campus reaches about 39.908,
   so the northern strip can't be used until the map is extended.
@@ -111,7 +120,8 @@ in one transaction, uses a daily slot, saves the gift with a randomly drawn stic
 
 | Method | Path | Body |
 | --- | --- | --- |
-| POST | `/api/gifts` | `requestId (uuid), latitude, longitude, note` |
+| POST | `/api/gifts` | `requestId (uuid), latitude, longitude, clue, riddle, answer, note` |
+| POST | `/api/gifts/:id/puzzle` | `clue, riddle, answer`: once, for gifts older than searching |
 | GET | `/api/gifts/mine` | |
 
 ## Notifications
@@ -129,10 +139,37 @@ closed browser.
 Live delivery is in memory, so it works with one API process. The reverse proxy must not buffer the stream, and
 serverless hosting such as Vercel functions doesn't suit it.
 
-### When searching is built
+## Searching
 
-Check the device's GPS position on the server, never `harita.oyuncu()`. Then record the search, unlock the item in
-`user_collection` and reveal the note in one transaction.
+1. **Assign.** A search draws a random gift hidden by someone else and shows only its main location. It is
+   reserved for that student for 24 hours. An empty map doesn't cost a search.
+2. **Arrive.** The browser sends the device's GPS reading. Within 40 m of the building's edge, plus up to 30 m
+   for GPS error, the server reveals the clue and riddle. Until then they aren't in any response.
+3. **Solve.** The student sends the answer, a photo and a current position (within 80 m, plus up to 70 m for GPS
+   error indoors). Five wrong answers end the hunt. Place and photo problems don't cost an attempt.
+4. **Unlock.** The sticker joins the booklet, the note is revealed and the gift is retired. A sticker the finder
+   already has is swapped for one they don't.
+
+Answers ignore capitals, Turkish letters, punctuation and generic words such as "hall" or "salonu", and forgive
+one typo in longer answers. Numbers and block letters must match.
+
+Positions are never stored. Photos are re-encoded without EXIF, stored in `find_photos`, and visible only to the
+finder and the hider.
+
+| Method | Path | Body |
+| --- | --- | --- |
+| GET | `/api/hunts/current` | |
+| POST | `/api/hunts` | `{}` |
+| POST | `/api/hunts/:id/location` | `latitude, longitude, accuracy` |
+| POST | `/api/hunts/:id/solve` | `latitude, longitude, accuracy, answer, photo (base64 JPEG or PNG)` |
+| POST | `/api/hunts/:id/give-up` | `{}` |
+| GET | `/api/hunts/:id/photo` | |
+
+**What this can't prove.** GPS readings come from the browser and can be faked, GPS can't tell floors apart, and
+the photo's content isn't checked. The checks stop casual cheating only.
+
+**Testing at a desk.** Development builds show "Test mode: simulate GPS" on the search page. Production builds
+don't contain it. On a phone, location needs HTTPS.
 
 ## Auth API
 
@@ -155,4 +192,6 @@ All under `/api/auth`, JSON only.
 - Configure SMTP and test delivery to a real METU inbox.
 - Serve `frontend/dist` and proxy `/api` on one HTTPS origin, with `NODE_ENV=production` and `TRUST_PROXY` set.
 - Move rate limits and notification fan-out to a shared store if more than one API process runs.
-- Add a way to report or remove notes, because students write them for strangers.
+- Add a way to report or remove notes, clues, riddles and photos, because strangers see them.
+- Decide how long photo proofs are kept, and state it in the KVKK notice.
+- Have the university review `hediye-binalari.json`. Allow request bodies of 5 MB at the reverse proxy.

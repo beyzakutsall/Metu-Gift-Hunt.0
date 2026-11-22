@@ -7,6 +7,8 @@ import { AppError } from './errors.js'
 import { createGiftRoutes } from './giftRoutes.js'
 import { createGiftService } from './giftService.js'
 import type { Mailer } from './mailer.js'
+import { createHuntRoutes } from './huntRoutes.js'
+import { createHuntService } from './huntService.js'
 import { createNotificationHub } from './notificationHub.js'
 import { createNotificationRoutes } from './notificationRoutes.js'
 import { createNotificationService } from './notificationService.js'
@@ -47,6 +49,8 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
     }
     next()
   })
+  // Before the global parser: one hunt route takes a photo, and sets its own limit.
+  app.use('/api/hunts', createHuntRoutes(requireUser, createHuntService(pool), limiter))
   app.use(express.json({ limit: '10kb' }))
 
   app.get('/api/health', async (_req, res) => {
@@ -64,6 +68,8 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
   const handleError: ErrorRequestHandler = (error, _req, res, _next) => {
     if (error instanceof AppError) {
       res.status(error.status).json({ error: { code: error.code, message: error.message, ...error.details } })
+    } else if (error.status === 413) {
+      res.status(413).json({ error: { code: 'TOO_LARGE', message: 'That’s too large. Try a smaller photo or shorter text.' } })
     } else if (error.status >= 400 && error.status < 500) {
       res.status(error.status).json({ error: { code: 'BAD_REQUEST', message: 'That request could not be read.' } })
     } else {

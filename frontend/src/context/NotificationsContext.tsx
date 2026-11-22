@@ -1,23 +1,10 @@
-import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { notificationService } from '../services/notificationService'
 import { AuthError } from '../types/auth'
 import type { AppNotification } from '../types/notification'
-import { useAuth } from './AuthContext'
+import { useAuth } from './authState'
+import { NotificationsContext, type Announcement } from './notificationsState'
 
-interface Announcement {
-  id: number
-  count: number
-}
-
-interface NotificationsState {
-  items: AppNotification[]
-  unread: number
-  announcement: Announcement | null
-  dismiss(): void
-  markAllRead(): void
-}
-
-const NotificationsContext = createContext<NotificationsState | null>(null)
 const RETRY_MS = 5000
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
@@ -105,10 +92,4 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   return (
     <NotificationsContext value={{ items, unread, announcement, dismiss, markAllRead }}>{children}</NotificationsContext>
   )
-}
-
-export function useNotifications() {
-  const state = use(NotificationsContext)
-  if (!state) throw new Error('useNotifications must be used inside NotificationsProvider')
-  return state
 }

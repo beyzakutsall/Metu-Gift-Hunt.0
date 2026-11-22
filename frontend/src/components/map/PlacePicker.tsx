@@ -9,20 +9,27 @@ interface Props {
 }
 
 export function PlacePicker({ map, place, error, onPick }: Props) {
-  const near = place && map?.yakinYer(place.enlem, place.boylam)
+  const location = place && map?.anaKonum(place.enlem, place.boylam)
+  const buildings = map?.yerler ?? []
+  // Two buildings can share a short name, like Havacılık.
+  const labels = buildings.map(({ ad }, index) => {
+    const same = buildings.filter((building) => building.ad === ad)
+    return same.length > 1 ? `${ad} (${same.indexOf(buildings[index]!) + 1})` : ad
+  })
+
   return (
     <div className="space-y-2">
       <label htmlFor="landmark" className="block text-caption font-bold">
-        1. Choose a place
+        1. Choose the main location
       </label>
-      <p className="text-caption text-ink-soft">Tap the map, or start from a building and adjust.</p>
+      <p className="text-caption text-ink-soft">Pick a building, or tap a spot in or beside one.</p>
       <select
         id="landmark"
         value=""
         disabled={!map}
         aria-describedby="place-status"
         onChange={(event) => {
-          const chosen = map?.yerler[Number(event.target.value)]
+          const chosen = buildings[Number(event.target.value)]
           if (chosen) onPick(chosen)
         }}
         className="h-touch w-full rounded-control border border-edge bg-surface px-3 disabled:opacity-60"
@@ -30,9 +37,9 @@ export function PlacePicker({ map, place, error, onPick }: Props) {
         <option value="" disabled>
           Jump to a building…
         </option>
-        {map?.yerler.map(({ ad }, index) => (
-          <option key={ad} value={index}>
-            {ad}
+        {buildings.map(({ anahtar }, index) => (
+          <option key={anahtar} value={index}>
+            {labels[index]}
           </option>
         ))}
       </select>
@@ -46,14 +53,7 @@ export function PlacePicker({ map, place, error, onPick }: Props) {
       >
         {error ? <CircleAlert className="size-4 shrink-0" aria-hidden /> : <MapPin className="size-4 shrink-0" aria-hidden />}
         <span className="min-w-0 break-words">
-          {error ||
-            (!place
-              ? 'No place selected yet.'
-              : near
-                ? near.metre < 15
-                  ? `Next to ${near.ad}`
-                  : `${near.metre} m from ${near.ad}`
-                : 'Place selected')}
+          {error || (location ? `${location.icinde ? 'Inside' : 'Next to'} ${location.tamAd}` : 'No place selected yet.')}
         </span>
       </p>
     </div>

@@ -4,7 +4,7 @@ import { AuthLayout } from './components/auth/AuthLayout'
 import { LoginForm } from './components/auth/LoginForm'
 import { RegisterForm } from './components/auth/RegisterForm'
 import { NotificationToast } from './components/notifications/NotificationToast'
-import { useAuth } from './context/AuthContext'
+import { useAuth } from './context/authState'
 import { NotificationsProvider } from './context/NotificationsContext'
 import { AuthPage } from './pages/AuthPage'
 import { ConfirmEmail } from './pages/ConfirmEmail'
@@ -13,6 +13,7 @@ import { ForgotPassword } from './pages/ForgotPassword'
 import { HideGiftPage } from './pages/HideGiftPage'
 import { ResetPassword } from './pages/ResetPassword'
 import { Terms } from './pages/Terms'
+import { SearchPage } from './pages/SearchPage'
 import { StudentPage } from './pages/StudentPage'
 
 function GuestOnly() {
@@ -44,6 +45,7 @@ export function App() {
     <Routes>
       <Route element={<SignedInOnly />}>
         <Route path="student" element={<StudentPage />} />
+        <Route path="search" element={<SearchPage />} />
         <Route path="hide" element={<HideGiftPage />} />
       </Route>
       <Route element={<AuthLayout />}>

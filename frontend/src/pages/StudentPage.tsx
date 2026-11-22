@@ -1,4 +1,5 @@
 import { LoaderCircle, MapPinPlus, PackagePlus, Search } from 'lucide-react'
+import { useLocation } from 'react-router'
 import { Alert } from '../components/common/Alert'
 import { Button, ButtonLink } from '../components/common/Button'
 import { PageHeading } from '../components/common/PageHeading'
@@ -7,12 +8,14 @@ import { CollectionBooklet } from '../components/student/CollectionBooklet'
 import { CollectionProgress } from '../components/student/CollectionProgress'
 import { ResetCountdown } from '../components/student/ResetCountdown'
 import { StudentHeader } from '../components/student/StudentHeader'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authState'
 import { useStudentProfile } from '../hooks/useStudentProfile'
+import type { Reward } from '../types/hunt'
 
 export function StudentPage() {
   const { user } = useAuth()
   const { profile, error, loading, refresh } = useStudentProfile()
+  const unlocked: Reward['item'] | undefined = useLocation().state?.unlocked
   const found = profile?.items.filter((item) => item.foundAt !== null).length ?? 0
 
   return (
@@ -32,15 +35,18 @@ export function StudentPage() {
                   <AllowanceCard tone="search" icon={Search} title="Gifts searched" verb="search" allowance={profile.searches} />
                   <AllowanceCard tone="hide" icon={PackagePlus} title="Gifts hidden" verb="hide" allowance={profile.hides} />
                 </div>
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <ResetCountdown resetsAt={profile.resetsAt} />
-                    <p className="text-caption text-ink">Searching opens in a later step.</p>
-                  </div>
-                  <ButtonLink to="/hide" className="sm:w-auto!">
+                <div className="mt-3 grid gap-2.5 sm:grid-cols-2 sm:gap-4">
+                  <ButtonLink to="/search">
+                    <Search className="size-5" aria-hidden />
+                    Find a gift
+                  </ButtonLink>
+                  <ButtonLink to="/hide" variant="secondary">
                     <MapPinPlus className="size-5" aria-hidden />
                     {profile.hides.today < profile.hides.limit ? 'Hide a gift on the map' : 'See your gifts on the map'}
                   </ButtonLink>
+                </div>
+                <div className="mt-2.5">
+                  <ResetCountdown resetsAt={profile.resetsAt} />
                 </div>
               </section>
             )}
@@ -56,7 +62,7 @@ export function StudentPage() {
               </Button>
             </div>
           )}
-          {profile && <CollectionBooklet items={profile.items} />}
+          {profile && <CollectionBooklet items={profile.items} highlight={unlocked} />}
           {!profile && !error && (
             <p role="status" className="flex items-center justify-center gap-2 py-16 text-ink-soft">
               <LoaderCircle className="size-5 animate-spin" aria-hidden />

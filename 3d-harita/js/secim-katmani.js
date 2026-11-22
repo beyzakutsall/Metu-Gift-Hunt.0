@@ -45,8 +45,38 @@ export function secimKatmaniOlustur(binaIzgarasi) {
     isaret.position.set(x, y, z);
   }
 
+  // Aranan bina: çatısını kaplayan sarı katman ve üstünde ışık sütunu
+  const hedefMalz = new THREE.MeshBasicMaterial({ color: SECILI, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+  const sutunMalz = new THREE.MeshBasicMaterial({ color: SECILI, transparent: true, opacity: 0.4, depthWrite: false });
+  let hedef = null;
+
+  function hedefCiz(hucreler) {
+    if (hedef) {
+      grup.remove(hedef);
+      for (const parca of hedef.children) parca.geometry.dispose();
+      hedef = null;
+    }
+    if (!hucreler.length) return;
+    const { genislik, yukseklik } = binaIzgarasi;
+    const koseler = [];
+    let tepe = 0, sx = 0, sz = 0;
+    for (const h of hucreler) {
+      const i = h % genislik, j = Math.floor(h / genislik), y = yukseklik[h] + 0.15;
+      koseler.push(i, y, j, i, y, j + 1, i + 1, y, j + 1, i, y, j, i + 1, y, j + 1, i + 1, y, j);
+      tepe = Math.max(tepe, y); sx += i + 0.5; sz += j + 0.5;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(koseler, 3));
+    const sutun = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 30, 8, 1, true), sutunMalz);
+    sutun.position.set(sx / hucreler.length, tepe + 15, sz / hucreler.length);
+    hedef = new THREE.Group();
+    hedef.add(new THREE.Mesh(geo, hedefMalz), sutun);
+    grup.add(hedef);
+  }
+
   return {
     grup,
+    hedefCiz,
     isaretle: (yer) => yerlestir(secili, yer),
     vurgula: (yer) => yerlestir(vurgu, yer),
     sinirCiz(halka) {
@@ -75,6 +105,7 @@ export function secimKatmaniOlustur(binaIzgarasi) {
       grup.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: SINIR_RENGI, side: THREE.DoubleSide })));
     },
     guncelle(kamera, saniye) {
+      hedefMalz.opacity = 0.7 + 0.2 * Math.sin(saniye * 3);
       for (const isaret of [secili, vurgu]) {
         if (!isaret.visible) continue;
         const olcek = Math.max(EN_AZ_OLCEK, kamera.position.distanceTo(isaret.position) / OLCEK_UZAKLIGI);

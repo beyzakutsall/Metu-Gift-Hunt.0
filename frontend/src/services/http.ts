@@ -1,6 +1,6 @@
 import { AuthError } from '../types/auth'
 
-export async function request<T>(path: string, body?: object): Promise<T> {
+export async function request<T>(path: string, body?: object, timeoutMs = 15_000): Promise<T> {
   let response: Response
   try {
     response = await fetch(`/api/${path}`, {
@@ -8,7 +8,7 @@ export async function request<T>(path: string, body?: object): Promise<T> {
       credentials: 'same-origin',
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body && JSON.stringify(body),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch {
     throw new AuthError('NETWORK', 'We can’t reach Campus Quest. Check your connection and try again.')

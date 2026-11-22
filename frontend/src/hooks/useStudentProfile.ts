@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authState'
 import { studentService } from '../services/studentService'
 import { AuthError } from '../types/auth'
 import type { StudentProfile } from '../types/student'

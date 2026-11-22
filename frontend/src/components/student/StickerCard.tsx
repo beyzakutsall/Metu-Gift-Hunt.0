@@ -6,7 +6,7 @@ const DECOYS = ['🎁', '🦊', '🍉', '🪁', '🐠', '🌻', '🎨', '🦋', 
 
 const date = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/Istanbul' })
 
-export function StickerCard({ item, color }: { item: CollectionItem; color: string }) {
+export function StickerCard({ item, color, isNew = false }: { item: CollectionItem; color: string; isNew?: boolean }) {
   const number = String(item.id).padStart(2, '0')
 
   if (item.foundAt === null) {
@@ -30,9 +30,9 @@ export function StickerCard({ item, color }: { item: CollectionItem; color: stri
   }
 
   return (
-    <li data-state="found" className="min-w-0">
+    <li data-state="found" data-new={isNew || undefined} className="min-w-0">
       <div
-        className={`grid aspect-square place-items-center rounded-control border-4 border-surface shadow-pill transition-transform duration-200 hover:scale-105 ${color} ${
+        className={`grid aspect-square place-items-center rounded-control border-4 border-surface shadow-pill transition-transform duration-200 hover:scale-105 ${color} ${isNew ? 'ring-4 ring-coral ring-offset-1 ring-offset-paper' : ''} ${
           item.id % 2 ? '-rotate-2' : 'rotate-2'
         }`}
       >
@@ -42,7 +42,7 @@ export function StickerCard({ item, color }: { item: CollectionItem; color: stri
       </div>
       <p className="mt-1.5 text-center text-caption leading-tight">
         <strong className="block break-words">{item.name}</strong>
-        <span className="text-ink-soft">Found {date.format(new Date(item.foundAt))}</span>
+        <span className="text-ink-soft">{isNew ? 'New! ' : ''}Found {date.format(new Date(item.foundAt))}</span>
       </p>
     </li>
   )

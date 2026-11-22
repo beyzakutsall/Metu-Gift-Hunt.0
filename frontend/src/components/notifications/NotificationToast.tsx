@@ -1,7 +1,7 @@
 import { Gift, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { NEW_GIFT_MESSAGE } from '../../../../shared/giftRules'
-import { useNotifications } from '../../context/NotificationsContext'
+import { useNotifications } from '../../context/notificationsState'
 
 const VISIBLE_MS = 8000
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authState'
 import { giftService } from '../services/giftService'
 import { AuthError } from '../types/auth'
 import type { Gift } from '../types/gift'
@@ -22,5 +22,6 @@ export function useMyGifts() {
   useEffect(() => void refresh(), [refresh])
 
   const add = useCallback((gift: Gift) => setGifts((previous) => [gift, ...previous.filter((g) => g.id !== gift.id)]), [])
-  return { gifts, error, add, refresh }
+  const replace = useCallback((gift: Gift) => setGifts((previous) => previous.map((g) => (g.id === gift.id ? gift : g))), [])
+  return { gifts, error, add, replace, refresh }
 }

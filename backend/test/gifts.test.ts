@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { base, createUser, pool } from './helpers.js'
 
+const PUZZLE = { clue: 'On the third floor', riddle: 'Which hall hosts the event?', answer: 'Cahit Arf' }
 const SPOT = { latitude: 39.893962, longitude: 32.784009 } // grass near the Cafeteria
 
 async function call(path: string, cookie = '', body?: object) {
@@ -15,7 +17,7 @@ async function call(path: string, cookie = '', body?: object) {
 }
 
 const hide = (cookie: string, overrides: object = {}) =>
-  call('gifts', cookie, { requestId: randomUUID(), ...SPOT, note: 'Look under the bench', ...overrides })
+  call('gifts', cookie, { requestId: randomUUID(), ...SPOT, ...PUZZLE, note: 'Look under the bench', ...overrides })
 
 const student = (name: string) => createUser({ username: name, email: `${name}@metu.edu.tr` })
 
@@ -68,14 +70,18 @@ test('hiding saves the spot and note, uses one daily slot and creates one notifi
 test('the sticker inside stays secret from the hider', async () => {
   const { cookie } = await student('hider')
   const { data } = await hide(cookie)
-  const fields = ['createdAt', 'id', 'latitude', 'longitude', 'note']
+  const fields = [
+    'answers', 'clue', 'createdAt', 'foundAt', 'id', 'latitude', 'locationName', 'longitude', 'note', 'photoUrl', 'riddle',
+  ]
   assert.deepEqual(Object.keys(data.gift).sort(), fields)
   assert.deepEqual(Object.keys((await call('gifts/mine', cookie)).data.gifts[0]).sort(), fields)
   assert.ok((await pool.query('SELECT item_id FROM gifts')).rows[0].item_id >= 1)
 })
 
 const forbidden: [string, number, number, RegExp][] = [
-  ['building', 39.893773, 32.784009, /building/],
+  ['building closed to hunts', 39.897502, 32.781694, /open for hunts/],
+  ['restricted area', 39.895962, 32.780853, /restricted/],
+  ['far from any building', 39.897583, 32.776959, /too far/],
   ['road', 39.893206, 32.784009, /road/],
   ['water', 39.895475, 32.786956, /water/],
   ['off campus', 39.895853, 32.79113, /outside/],
@@ -93,10 +99,24 @@ for (const [name, latitude, longitude, message] of forbidden) {
   })
 }
 
+test('no sensitive building can be a hiding place', async () => {
+  const { cookie } = await student('hider')
+  const osm = JSON.parse(readFileSync(new URL('../../3d-harita/data/campus.json', import.meta.url), 'utf8'))
+  const names = ['ASELSAN ARGE Binası', 'TÜBİTAK SAGE Güdüm Kontrol Laboratuvarı', 'Yüksek Radyasyon Binası', 'Yuva ve Anaokulu', '4. Yurt']
+  for (const name of names) {
+    const building = osm.elements.find((o: any) => o.tags?.name === name)
+    assert.ok(building, name)
+    const n = building.geometry.length
+    const latitude = building.geometry.reduce((sum: number, p: any) => sum + p.lat, 0) / n
+    const longitude = building.geometry.reduce((sum: number, p: any) => sum + p.lon, 0) / n
+    assert.equal((await hide(cookie, { latitude, longitude })).status, 400, name)
+  }
+})
+
 test('malformed input is refused without using up a slot', async () => {
   const { cookie } = await student('hider')
   const cases = [
-    { note: '' }, { note: ' \n ' }, { note: '\u0000' }, { note: 'x'.repeat(201) }, { note: ['x'] },
+    { note: '' }, { clue: '' }, { riddle: '?' }, { answer: ';' }, { answer: 'a;b;c;d;e;f' }, { note: ' \n ' }, { note: '\u0000' }, { note: 'x'.repeat(201) }, { note: ['x'] },
     { latitude: '39.89' }, { longitude: null }, { requestId: 'nope' },
   ]
   for (const override of cases) assert.equal((await hide(cookie, override)).status, 400, JSON.stringify(override))

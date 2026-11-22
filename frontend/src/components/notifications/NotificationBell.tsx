@@ -1,7 +1,7 @@
 import { Bell, Gift } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NEW_GIFT_MESSAGE } from '../../../../shared/giftRules'
-import { useNotifications } from '../../context/NotificationsContext'
+import { useNotifications } from '../../context/notificationsState'
 import { formatTime } from './formatTime'
 
 export function NotificationBell() {

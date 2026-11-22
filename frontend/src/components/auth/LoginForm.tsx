@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { currentPasswordError, emailError } from '../../../../shared/authRules'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/authState'
 import { useForm } from '../../hooks/useForm'
 import { authService } from '../../services/authService'
 import { savePending } from '../../services/pendingRegistration'

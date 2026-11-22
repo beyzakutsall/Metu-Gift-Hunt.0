@@ -21,16 +21,17 @@ export function createMockStudentService(): StudentService {
       const user = await authService.getSession()
       const demo = user?.id === 'demo'
       const hidden = mockState.gifts.get(user?.id ?? '')?.length ?? 0
+      const searched = mockState.searches.get(user?.id ?? '') ?? 0
       const items = Array.from({ length: 24 }, (_, index): CollectionItem => {
         const id = index + 1
         const chapter = CHAPTERS[Math.floor(index / 6)]!
-        const find = demo ? SAMPLE_FINDS.get(id) : undefined
+        const find = (demo ? SAMPLE_FINDS.get(id) : undefined) ?? (id === 2 && mockState.found.has(user?.id ?? '') ? ['Good Dog', '🐶'] : undefined)
         return find
           ? { id, chapter, name: find[0]!, emoji: find[1]!, foundAt: new Date().toISOString() }
           : { id, chapter, name: null, emoji: null, foundAt: null }
       })
       return {
-        searches: { today: demo ? 1 : 0, limit: DAILY_LIMITS.search, total: demo ? 9 : 0 },
+        searches: { today: searched + (demo ? 1 : 0), limit: DAILY_LIMITS.search, total: searched + (demo ? 9 : 0) },
         hides: { today: hidden + (demo ? 1 : 0), limit: DAILY_LIMITS.hide, total: hidden + (demo ? 12 : 0) },
         resetsAt: new Date(Math.ceil((Date.now() + UTC_OFFSET) / DAY) * DAY - UTC_OFFSET).toISOString(),
         items,
