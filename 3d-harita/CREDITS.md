@@ -8,6 +8,7 @@ satırında da yazar (`minecraft.html`, `#atif`).
 | Ne | Kaynak | Lisans |
 |---|---|---|
 | Binalar, yollar, alanlar, simge nesne konumları, bina adları (`data/campus.json`) | © [OpenStreetMap katkıcıları](https://www.openstreetmap.org/copyright), Overpass API ile indirildi | [ODbL](https://opendatacommons.org/licenses/odbl/) |
+| Kampüs sınırı (`data/kampus-siniri.json`) | © [OpenStreetMap katkıcıları](https://www.openstreetmap.org/copyright), [relation 6899696](https://www.openstreetmap.org/relation/6899696), 22 Kasım 2026 | [ODbL](https://opendatacommons.org/licenses/odbl/) |
 | Kısa bina adları (`data/bina-adlari.json`), elle eklenen nesneler (`data/elle-eklenen.json`) | Bu proje | — |
 
 ## 3D modeller

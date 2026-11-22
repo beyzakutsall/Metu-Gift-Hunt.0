@@ -6,6 +6,7 @@ The project brief is in [README.md](README.md). This file covers running the cod
 
 - Node.js 22.12 or newer
 - A running PostgreSQL, 14 or newer
+- An internet connection and WebGL 2 for the map, which loads three.js from a CDN
 
 ## Run it
 
@@ -38,11 +39,18 @@ Use `localhost:5173` rather than `127.0.0.1:5173`: the API checks the request or
 ```
 shared/authRules.ts        validation used by browser and API
 shared/gameRules.ts        daily search and hide limits
+shared/giftRules.ts        note rules and placement messages
+3d-harita/                 the 3D map, plain ES modules
+  js/api.js                the app's only door into the map
+  js/hediyeler.js          gift boxes and campus boundary
+  js/yerlesim.js           where a gift may be hidden, used by browser and server
 backend/
   migrations/              numbered SQL files, applied once each
   src/authRoutes.ts        HTTP: input checks, cookies
   src/authService.ts       auth rules and queries
   src/studentService.ts    booklet and activity counts
+  src/giftService.ts       hiding gifts
+  src/notification*.ts     notification list and live stream
   src/security.ts          password and token hashing
   src/mailer.ts            SMTP, or terminal output in development
   test/                    API tests
@@ -50,13 +58,15 @@ frontend/src/
   styles/globals.css       design tokens
   components/common/       Button, Input, Checkbox, Alert, PageHeading
   components/auth/         layout, forms, illustration
+  components/map/          map frame and hide form
+  components/notifications/ bell and toast
   components/student/      booklet, stickers, daily counters
   pages/                   one file per screen
   hooks/useForm.ts         validation timing, loading, duplicate-submit guard
   services/authService.ts  chooses the real or mock implementation
 ```
 
-To change the schema, add a new file such as `003_map_gifts.sql`. Never edit a migration that has been applied.
+To change the schema, add a new file such as `004_search.sql`. Never edit a migration that has been applied.
 
 ## How authentication works
 
@@ -83,14 +93,44 @@ counts, the next reset time and the booklet.
   The database rejects a slot over the limit and a slot used twice.
 - **Unlocking:** insert a row into `user_collection`. The page refreshes when it becomes visible again.
 
-### Connecting the map
+## Hiding gifts
 
-No endpoint writes game data yet. When the engine in `HARITA-MOTORU.md` is ready:
+`/hide` shows the map. A student taps a place, writes a note (up to 200 characters) and submits. The server then,
+in one transaction, uses a daily slot, saves the gift with a randomly drawn sticker and records a notification.
 
-1. The page passes boxes to `harita.hediyeleriGoster([{ id, enlem, boylam, alinabilir }])`.
-2. On `hediye-tiklandi` it calls a new backend endpoint with the gift id and the device's GPS position, not
-   `harita.oyuncu()`.
-3. The backend checks the distance, then records the action and the unlock in one transaction.
+- **Allowed places:** inside the campus boundary, and not on military land, a construction site, a building, a car
+  road or water. The server runs `3d-harita/js/yerlesim.js` on the map's data, so deploy the backend together with
+  the `3d-harita` folder.
+- **Secrets:** students can list only their own gifts. The sticker inside is never sent to a browser.
+- **Map limit:** the map ends at latitude 39.903 (`SINIR` in `projeksiyon.js`) and the campus reaches about 39.908,
+  so the northern strip can't be used until the map is extended.
+- **Map contract:** the app talks only to `window.kampusHarita`, documented at the top of `3d-harita/js/api.js`.
+  A replacement engine needs to provide the same functions and events.
+
+| Method | Path | Body |
+| --- | --- | --- |
+| POST | `/api/gifts` | `requestId (uuid), latitude, longitude, note` |
+| GET | `/api/gifts/mine` | |
+
+## Notifications
+
+Every hidden gift notifies every student who already had an account, without saying who or where. Open tabs get
+it live over server-sent events. Everyone else sees it on their next visit. There is no push notification to a
+closed browser.
+
+| Method | Path | Body |
+| --- | --- | --- |
+| GET | `/api/notifications` | |
+| POST | `/api/notifications/read` | `upTo` |
+| GET | `/api/notifications/stream` | event stream |
+
+Live delivery is in memory, so it works with one API process. The reverse proxy must not buffer the stream, and
+serverless hosting such as Vercel functions doesn't suit it.
+
+### When searching is built
+
+Check the device's GPS position on the server, never `harita.oyuncu()`. Then record the search, unlock the item in
+`user_collection` and reveal the note in one transaction.
 
 ## Auth API
 
@@ -112,4 +152,5 @@ All under `/api/auth`, JSON only.
 - Replace the placeholder Terms page and add a KVKK privacy notice.
 - Configure SMTP and test delivery to a real METU inbox.
 - Serve `frontend/dist` and proxy `/api` on one HTTPS origin, with `NODE_ENV=production` and `TRUST_PROXY` set.
-- Move rate limits to a shared store if more than one API process runs.
+- Move rate limits and notification fan-out to a shared store if more than one API process runs.
+- Add a way to report or remove notes, because students write them for strangers.

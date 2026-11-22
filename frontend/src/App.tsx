@@ -3,11 +3,14 @@ import { Navigate, Outlet, Route, Routes } from 'react-router'
 import { AuthLayout } from './components/auth/AuthLayout'
 import { LoginForm } from './components/auth/LoginForm'
 import { RegisterForm } from './components/auth/RegisterForm'
+import { NotificationToast } from './components/notifications/NotificationToast'
 import { useAuth } from './context/AuthContext'
+import { NotificationsProvider } from './context/NotificationsContext'
 import { AuthPage } from './pages/AuthPage'
 import { ConfirmEmail } from './pages/ConfirmEmail'
 import { EmailVerification } from './pages/EmailVerification'
 import { ForgotPassword } from './pages/ForgotPassword'
+import { HideGiftPage } from './pages/HideGiftPage'
 import { ResetPassword } from './pages/ResetPassword'
 import { Terms } from './pages/Terms'
 import { StudentPage } from './pages/StudentPage'
@@ -17,7 +20,14 @@ function GuestOnly() {
 }
 
 function SignedInOnly() {
-  return useAuth().user ? <Outlet /> : <Navigate to="/login" replace />
+  const { user } = useAuth()
+  if (!user) return <Navigate to="/login" replace />
+  return (
+    <NotificationsProvider key={user.id}>
+      <NotificationToast />
+      <Outlet />
+    </NotificationsProvider>
+  )
 }
 
 export function App() {
@@ -34,6 +44,7 @@ export function App() {
     <Routes>
       <Route element={<SignedInOnly />}>
         <Route path="student" element={<StudentPage />} />
+        <Route path="hide" element={<HideGiftPage />} />
       </Route>
       <Route element={<AuthLayout />}>
         <Route element={<GuestOnly />}>

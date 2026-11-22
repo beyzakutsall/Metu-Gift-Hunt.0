@@ -30,6 +30,7 @@ before(async () => {
 })
 
 beforeEach(async () => {
+  server?.closeAllConnections()
   server?.close()
   await pool.query('TRUNCATE users, pending_registrations, sessions, password_resets CASCADE')
   outbox = []

@@ -1,6 +1,6 @@
-import { LoaderCircle, Map, PackagePlus, Search } from 'lucide-react'
+import { LoaderCircle, MapPinPlus, PackagePlus, Search } from 'lucide-react'
 import { Alert } from '../components/common/Alert'
-import { Button } from '../components/common/Button'
+import { Button, ButtonLink } from '../components/common/Button'
 import { PageHeading } from '../components/common/PageHeading'
 import { AllowanceCard } from '../components/student/AllowanceCard'
 import { CollectionBooklet } from '../components/student/CollectionBooklet'
@@ -32,12 +32,15 @@ export function StudentPage() {
                   <AllowanceCard tone="search" icon={Search} title="Gifts searched" verb="search" allowance={profile.searches} />
                   <AllowanceCard tone="hide" icon={PackagePlus} title="Gifts hidden" verb="hide" allowance={profile.hides} />
                 </div>
-                <div className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1">
-                  <ResetCountdown resetsAt={profile.resetsAt} />
-                  <p className="flex items-center gap-2 text-caption text-ink">
-                    <Map className="size-4 shrink-0" aria-hidden />
-                    Searching and hiding open with the campus map
-                  </p>
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <ResetCountdown resetsAt={profile.resetsAt} />
+                    <p className="text-caption text-ink">Searching opens in a later step.</p>
+                  </div>
+                  <ButtonLink to="/hide" className="sm:w-auto!">
+                    <MapPinPlus className="size-5" aria-hidden />
+                    {profile.hides.today < profile.hides.limit ? 'Hide a gift on the map' : 'See your gifts on the map'}
+                  </ButtonLink>
                 </div>
               </section>
             )}

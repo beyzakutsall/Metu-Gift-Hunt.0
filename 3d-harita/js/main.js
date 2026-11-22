@@ -12,6 +12,7 @@ import { girisleriBul, tabelaYerleriniSec, tabelalariOlustur } from './tabelalar
 import { etiketleriOlustur } from './etiketler.js';
 import { elleEklenenleriYukle, nesneYerleriniSec, nesneleriOlustur } from './nesneler.js';
 import { kameraKontrolleriniKur } from './kamera.js';
+import { apiKur } from './api.js';
 
 const GOK_RENGI = 0x8ec8ff;
 const BASLANGIC = { enlem: 39.8915, boylam: 32.7835 }; // Devrim Stadı / Kütüphane civarı
@@ -35,7 +36,8 @@ async function baslat() {
 
   const anizotropi = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const izgara = zeminIzgarasiOlustur(osm);
-  sahne.add(zeminOlustur(izgara, zeminDokulariniOlustur(anizotropi), GOK_RENGI));
+  const zeminNesnesi = zeminOlustur(izgara, zeminDokulariniOlustur(anizotropi), GOK_RENGI);
+  sahne.add(zeminNesnesi);
 
   const binaIzgarasi = binaIzgarasiOlustur(osm);
   const binalar = binalariOlustur(binaIzgarasi, binaDokulariniOlustur(anizotropi), GOK_RENGI);
@@ -63,6 +65,8 @@ async function baslat() {
   const kontroller = kameraKontrolleriniKur(kamera, renderer.domElement,
     new THREE.Vector3(baslangic.x, 0, baslangic.z));
 
+  const { api, guncelle } = await apiKur({ osm, izgara, sahne, kamera, kontroller, tuval: renderer.domElement, zeminNesnesi, binalar, adliBinalar });
+
   window.addEventListener('resize', () => {
     kamera.aspect = window.innerWidth / window.innerHeight;
     kamera.updateProjectionMatrix();
@@ -70,11 +74,14 @@ async function baslat() {
   });
 
   yukleniyor.hidden = true;
+  window.kampusHarita = api;
+  window.dispatchEvent(new Event('harita-hazir'));
 
   renderer.setAnimationLoop((zamanMs) => {
     agaclar.userData.guncelle(zamanMs / 1000); // ışıkların yanıp sönmesi
     nesneler.userData.guncelle(zamanMs / 1000); // lambalar gece yanar
     kontroller.update();
+    guncelle(zamanMs / 1000); // hediye kutuları
     etiketler.userData.guncelle(kamera, window.innerWidth, window.innerHeight); // yakında solar, çakışan gizlenir
     renderer.render(sahne, kamera);
   });
@@ -82,6 +89,8 @@ async function baslat() {
 
 baslat().catch(hata => {
   console.error(hata);
+  window.haritaHatasi = hata.message;
+  window.dispatchEvent(new Event('harita-hata'));
   // file:// ile açıldığında fetch çalışmaz; en sık hata bu
   yukleniyor.textContent = location.protocol === 'file:'
     ? 'Sayfa yerel bir sunucu üzerinden açılmalı (README\'ye bakın).'

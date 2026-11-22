@@ -4,8 +4,14 @@ import type pg from 'pg'
 import { createAuthRoutes } from './authRoutes.js'
 import { createAuthService } from './authService.js'
 import { AppError } from './errors.js'
+import { createGiftRoutes } from './giftRoutes.js'
+import { createGiftService } from './giftService.js'
 import type { Mailer } from './mailer.js'
+import { createNotificationHub } from './notificationHub.js'
+import { createNotificationRoutes } from './notificationRoutes.js'
+import { createNotificationService } from './notificationService.js'
 import { createRateLimiter } from './rateLimit.js'
+import { createRequireUser } from './requireUser.js'
 import { createSessionCookie } from './sessionCookie.js'
 import { createStudentRoutes } from './studentRoutes.js'
 import { createStudentService } from './studentService.js'
@@ -24,6 +30,8 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
   const auth = createAuthService(pool, mailer, limiter, appUrl)
 
   const cookie = createSessionCookie(secureCookies)
+  const requireUser = createRequireUser(auth, cookie)
+  const hub = createNotificationHub()
 
   app.set('trust proxy', trustProxy)
   app.use(helmet())
@@ -46,7 +54,9 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
     res.json({ status: 'ok' })
   })
   app.use('/api/auth', createAuthRoutes(auth, limiter, cookie))
-  app.use('/api/student', createStudentRoutes(auth, createStudentService(pool), cookie))
+  app.use('/api/student', createStudentRoutes(requireUser, createStudentService(pool)))
+  app.use('/api/gifts', createGiftRoutes(requireUser, createGiftService(pool, hub), limiter))
+  app.use('/api/notifications', createNotificationRoutes(requireUser, createNotificationService(pool), hub))
   app.use(() => {
     throw new AppError(404, 'NOT_FOUND', 'Not found.')
   })
