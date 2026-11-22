@@ -1,0 +1,10 @@
+export class AppError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+    readonly details: { field?: string; registrationId?: string } = {},
+  ) {
+    super(message)
+  }
+}
