@@ -454,7 +454,8 @@ function orman(geometri, malzeme, yerler, rng, renkFarki) {
 
 // ---------------- Dışa açılan ----------------
 
-export async function agaclariOlustur(zeminIzgarasi, binaIzgarasi, gokRengi, doluluk = null) {
+// adres: modeller/ klasörünün bulunduğu temel adres (verilmezse sayfanın adresi)
+export async function agaclariOlustur(zeminIzgarasi, binaIzgarasi, gokRengi, doluluk = null, adres = document.baseURI) {
   const malzeme = agacMalzemesi(gokRengi);
   const rng = rastgeleUretici(42);
   const grup = new THREE.Group();
@@ -467,12 +468,12 @@ export async function agaclariOlustur(zeminIzgarasi, binaIzgarasi, gokRengi, dol
   // Süslü ağaç: önce GLB, olmazsa .vox
   let suslu = null;
   try {
-    const { geometri, doku } = await glbdenGeometri('modeller/yilbasi-agaci.glb', SUSLU_AGAC_BOYU);
+    const { geometri, doku } = await glbdenGeometri(new URL('modeller/yilbasi-agaci.glb', adres).href, SUSLU_AGAC_BOYU);
     suslu = { geometri, malzeme: dokuluAgacMalzemesi(malzeme, doku), kaynak: 'GLB' };
   } catch (hata) {
     console.warn('GLB yılbaşı ağacı yüklenemedi, .vox modeli kullanılacak:', hata);
     try {
-      const yanit = await fetch('modeller/yilbasi-agaci.vox');
+      const yanit = await fetch(new URL('modeller/yilbasi-agaci.vox', adres));
       if (!yanit.ok) throw new Error(`HTTP ${yanit.status}`);
       const vox = voxOku(await yanit.arrayBuffer());
       suslu = { geometri: voxtanGeometri(vox, SUSLU_AGAC_BOYU), malzeme, kaynak: '.vox' };
