@@ -1,5 +1,9 @@
 node_modules/
 dist/
-veri/ham/
 .env
+.env.*
+!.env.example
+*.log
+.DS_Store
+veri/ham/
 .claude/
