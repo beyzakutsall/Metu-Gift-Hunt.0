@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ODTÜ Blok Haritası: deneme</title>
+  <!--
+    Haritayı GPS ve hediye kutularıyla deneme sayfası. Adres parametreleri:
+      ?konum=sahte   Kütüphane önünden başlayıp yürüyen sahte konum (bilgisayarda denemek için)
+      ?hediye=ornek  Kütüphane çevresine 5 örnek hediye; konuma 30 m'den yakın olan alınabilir
+    Gerçek konum için "Konumumu kullan"a basın (yalnızca HTTPS ya da localhost).
+  -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #haritaKutusu { position: absolute; inset: 0; }
+    .panel { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
+    .panel button {
+      font: 600 14px system-ui, sans-serif; padding: 9px 12px; color: #fff; background: #4a4d52;
+      border: 3px solid #2e3034; box-shadow: inset -3px -3px 0 #3a3d41, inset 3px 3px 0 #62656a; cursor: pointer;
+    }
+    .panel button[aria-pressed="true"] { background: #2f7bff; border-color: #1d4fa8; box-shadow: inset -3px -3px 0 #2563d1, inset 3px 3px 0 #5b97ff; }
+    .panel button:disabled { opacity: 0.5; cursor: default; }
+    #durum {
+      position: absolute; left: 10px; bottom: 10px; max-width: calc(100% - 20px); z-index: 2;
+      padding: 6px 10px; background: rgba(255, 255, 255, 0.9); font-size: 13px; border-radius: 4px;
+    }
+    #durum:empty { display: none; }
+    #bildirim {
+      position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 3; padding: 10px 16px;
+      background: #1e2a1e; color: #fff; font-weight: 600; border-radius: 6px; transition: opacity .3s; opacity: 0;
+    }
+    #bildirim.gorunur { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="haritaKutusu"></div>
+  <div class="panel">
+    <button id="konumDugmesi">Konumumu kullan</button>
+    <button id="odaklanDugmesi" disabled>Bana odaklan</button>
+    <button id="takipDugmesi" aria-pressed="false" disabled>Takip et</button>
+  </div>
+  <div id="durum"></div>
+  <div id="bildirim"></div>
+
+  <script type="module">
+    const durumYazisi = document.getElementById('durum');
+    const goster = (yazi) => { durumYazisi.textContent = yazi; };
+
+    // Modüller dinamik yüklenir: CDN'e ulaşılamazsa da Türkçe hata görünsün
+    let modul;
+    try {
+      const [h, k] = await Promise.all([import('./js/harita.js'), import('./js/konum.js')]);
+      modul = { ...h, ...k };
+    } catch (e) {
+      console.error(e);
+      goster('Harita kodu yüklenemedi (three.js CDN\'ine ulaşılamıyor olabilir).');
+      throw e;
+    }
+    const { haritaBaslat, konumuIzle, mesafeMetre, kampusteMi } = modul;
+    const odaklanDugmesi = document.getElementById('odaklanDugmesi');
+    const takipDugmesi = document.getElementById('takipDugmesi');
+
+    const parametre = new URLSearchParams(location.search);
+    const KUTUPHANE = { enlem: 39.89576, boylam: 32.78321 };
+    const ALMA_MESAFESI = 30; // metre
+
+    const harita = haritaBaslat(document.getElementById('haritaKutusu'), { baslangic: KUTUPHANE });
+    harita.on('hata', ({ mesaj }) => goster(mesaj));
+
+    // --- Örnek hediyeler ---
+    const kaydir = (n, kuzey, dogu) => ({
+      enlem: n.enlem + kuzey / 110574,
+      boylam: n.boylam + dogu / (111320 * Math.cos(n.enlem * Math.PI / 180))
+    });
+    const ornekler = parametre.get('hediye') === 'ornek'
+      ? [[20, 10], [60, -40], [-80, 30], [10, 140], [-150, -120]].map(([k, d], i) => ({ id: i + 1, ...kaydir(KUTUPHANE, k, d) }))
+      : [];
+    let sonKonum = null;
+    function hediyeleriYenile() {
+      harita.hediyeleriGoster(ornekler.map((h) => ({
+        ...h,
+        alinabilir: sonKonum !== null && mesafeMetre(sonKonum, h) <= ALMA_MESAFESI
+      })));
+    }
+    hediyeleriYenile();
+
+    harita.on('hediye-tiklandi', ({ id }) => {
+      const h = ornekler.find((o) => o.id === id);
+      const uzaklik = sonKonum && h ? Math.round(mesafeMetre(sonKonum, h)) : null;
+      bildir(uzaklik === null ? `Hediye ${id} tıklandı` :
+        uzaklik <= ALMA_MESAFESI ? `Hediye ${id} tıklandı: alınabilir!` : `Hediye ${id} tıklandı: ${uzaklik} m uzakta`);
+    });
+
+    // --- Konum: gerçek ya da sahte ---
+    function konumGeldi(k) {
+      sonKonum = k;
+      harita.gpsKonumu(k);
+      hediyeleriYenile();
+      odaklanDugmesi.disabled = takipDugmesi.disabled = false;
+      const sahte = parametre.get('konum') === 'sahte' ? 'SAHTE konum (Kütüphane çevresi, deneme için)' : 'Konum';
+      goster(kampusteMi(k) ? `${sahte} ±${Math.round(k.dogruluk)} m` : `Kampüs dışındasın (±${Math.round(k.dogruluk)} m)`);
+    }
+
+    let durdur = null;
+    const konumDugmesi = document.getElementById('konumDugmesi');
+    konumDugmesi.addEventListener('click', () => {
+      if (durdur) { durdur(); durdur = null; konumDugmesi.textContent = 'Konumumu kullan'; goster(''); return; }
+      goster('Konum bekleniyor…');
+      durdur = parametre.get('konum') === 'sahte' ? sahteKonum(konumGeldi) : konumuIzle({
+        konum: konumGeldi,
+        hata: ({ mesaj }) => goster(mesaj),
+        zayif: (d) => goster(`Konum sinyali zayıf (±${Math.round(d)} m), bekleniyor…`)
+      });
+      konumDugmesi.textContent = 'Konumu durdur';
+    });
+    if (parametre.get('konum') === 'sahte') konumDugmesi.click();
+
+    // Kütüphane önünden başlayıp 60 m yarıçaplı bir daire çizen, saniyede bir güncellenen sahte konum
+    function sahteKonum(cb) {
+      const baslangic = performance.now();
+      const adim = () => {
+        const t = (performance.now() - baslangic) / 1000;
+        const aci = t * 1.4 / 60; // 1,4 m/s yürüyüş
+        const titreme = () => (Math.random() - 0.5) * 6;
+        cb({ ...kaydir(KUTUPHANE, Math.sin(aci) * 60 + titreme(), (1 - Math.cos(aci)) * 60 + titreme()), dogruluk: 8 + Math.random() * 6, zaman: Date.now() });
+      };
+      adim();
+      const zamanlayici = setInterval(adim, 1000);
+      return () => clearInterval(zamanlayici);
+    }
+
+    // --- Kamera düğmeleri ---
+    odaklanDugmesi.addEventListener('click', () => harita.oyuncuyaOdaklan());
+    takipDugmesi.addEventListener('click', () => {
+      const acik = takipDugmesi.getAttribute('aria-pressed') !== 'true';
+      takipDugmesi.setAttribute('aria-pressed', String(acik));
+      harita.takipEt(acik);
+    });
+
+    const bildirimKutusu = document.getElementById('bildirim');
+    let bildirimZamani;
+    function bildir(yazi) {
+      bildirimKutusu.textContent = yazi;
+      bildirimKutusu.classList.add('gorunur');
+      clearTimeout(bildirimZamani);
+      bildirimZamani = setTimeout(() => bildirimKutusu.classList.remove('gorunur'), 2500);
+    }
+
+    window.harita = harita; // konsoldan denemek için
+  </script>
+</body>
+</html>

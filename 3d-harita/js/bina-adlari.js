@@ -23,9 +23,10 @@ export function adiKisalt(ad) {
   return k.trim() || ad.trim();
 }
 
-export async function binaAdlariniYukle() {
+// adres: data/ klasörünün bulunduğu temel adres (verilmezse sayfanın adresi)
+export async function binaAdlariniYukle(adres = document.baseURI) {
   try {
-    const yanit = await fetch('data/bina-adlari.json');
+    const yanit = await fetch(new URL('data/bina-adlari.json', adres));
     if (!yanit.ok) throw new Error(`HTTP ${yanit.status}`);
     return (await yanit.json()).binalar || {};
   } catch (hata) {
