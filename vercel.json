@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm run derle",
+  "outputDirectory": "dist",
+  "redirects": [
+    { "source": "/", "destination": "/harita/deneme.html?hediye=ornek", "permanent": false }
+  ]
+}
