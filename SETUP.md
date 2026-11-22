@@ -42,7 +42,9 @@ shared/gameRules.ts        daily search and hide limits
 shared/giftRules.ts        note rules and placement messages
 3d-harita/                 the 3D map, plain ES modules
   js/api.js                the app's only door into the map
-  js/hediyeler.js          gift boxes and campus boundary
+  js/harita.js             the map engine
+  js/konum.js              GPS reader
+  js/secim-katmani.js      selection markers and campus boundary
   js/yerlesim.js           where a gift may be hidden, used by browser and server
 backend/
   migrations/              numbered SQL files, applied once each

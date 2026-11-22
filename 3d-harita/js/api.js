@@ -1,8 +1,9 @@
-// Haritanın dışarıya açılan tek kapısı: uygulama yalnızca window.kampusHarita ile konuşur.
+// harita.js'in eklentisi: uygulama (iframe'in dışı) yalnızca window.kampusHarita ile konuşur.
 // Adlar HARITA-MOTORU.md Bölüm 5.2'den; yer seçimiyle ilgili olanlar ek. Dışarısı hep enlem/boylam konuşur.
 //
 //   hediyeleriGoster([{ id, enlem, boylam, alinabilir }])
 //   hediyeVurgula(id | null)
+//   gpsKonumu({ enlem, boylam, dogruluk } | null), oyuncuyaOdaklan()  → harita.js'teki
 //   yerIsaretle({ enlem, boylam } | null)
 //   yerDurumu(enlem, boylam)  → yerlesim.js'teki YER değerlerinden biri
 //   odakla({ enlem, boylam })
@@ -12,7 +13,7 @@
 import * as THREE from 'three';
 import { IZGARA, BLOK_METRE, enlemBoylamdanBloga, bloktanEnlemBoylama } from './projeksiyon.js';
 import { yerlesimOlustur, YER } from './yerlesim.js';
-import { hediyeKatmaniOlustur } from './hediyeler.js';
+import { secimKatmaniOlustur } from './secim-katmani.js';
 
 const DOKUNMA_PAYI = 8; // piksel; daha fazla kayarsa sürükleme sayılır
 const YER_ARAMA = 40;   // blok
@@ -31,13 +32,14 @@ function binaOnu(bina, yerlesim) {
   return null;
 }
 
-export async function apiKur({ osm, izgara, sahne, kamera, kontroller, tuval, zeminNesnesi, binalar, adliBinalar }) {
-  const yanit = await fetch('data/kampus-siniri.json');
+export async function apiKur(baglam, harita) {
+  const { osm, izgara, binaIzgarasi, sahne, kamera, kontroller, tuval, zeminNesnesi, binalar, adliBinalar, veriAdresi, hediyeBul } = baglam;
+  const yanit = await fetch(new URL('data/kampus-siniri.json', veriAdresi));
   if (!yanit.ok) throw new Error(`data/kampus-siniri.json okunamadı (HTTP ${yanit.status})`);
   const sinir = await yanit.json();
   const yerlesim = yerlesimOlustur(osm, sinir, izgara);
 
-  const katman = hediyeKatmaniOlustur();
+  const katman = secimKatmaniOlustur(binaIzgarasi);
   katman.sinirCiz(sinir.halka);
   sahne.add(katman.grup);
 
@@ -55,7 +57,7 @@ export async function apiKur({ osm, izgara, sahne, kamera, kontroller, tuval, ze
   }
   yerler.sort((p, q) => p.ad.localeCompare(q.ad, 'tr'));
 
-  const dinleyiciler = { 'yer-secildi': new Set(), 'hediye-tiklandi': new Set() };
+  const dinleyiciler = { 'yer-secildi': new Set() };
   const yay = (olay, veri) => { for (const cb of dinleyiciler[olay]) cb(veri); };
 
   // Kısa, tek parmakla, kaymayan dokunuş seçimdir; gerisi kamera hareketi
@@ -77,8 +79,8 @@ export async function apiKur({ osm, izgara, sahne, kamera, kontroller, tuval, ze
 
     const kutu = tuval.getBoundingClientRect();
     const x = e.clientX - kutu.left, y = e.clientY - kutu.top;
-    const id = katman.enYakin(kamera, x, y, kutu.width, kutu.height);
-    if (id !== null) return yay('hediye-tiklandi', { id });
+    // Kutuya dokunulduysa olayı harita.js verir; yer seçimi sayılmaz
+    if (hediyeBul(x, y, kutu.width, kutu.height, kamera) !== null) return;
 
     isin.setFromCamera(new THREE.Vector2(x / kutu.width * 2 - 1, 1 - y / kutu.height * 2), kamera);
     const vurus = isin.intersectObjects([zeminNesnesi, binalar], false)[0];
@@ -91,11 +93,18 @@ export async function apiKur({ osm, izgara, sahne, kamera, kontroller, tuval, ze
     yay('yer-secildi', { enlem, boylam, durum: yerlesim.durum(enlem, boylam) });
   });
 
+  let hediyeler = [];
+
   return {
     guncelle: (saniye) => katman.guncelle(kamera, saniye),
     api: {
-      hediyeleriGoster: (liste) => katman.goster(liste),
-      hediyeVurgula: (id) => katman.vurgula(id),
+      hediyeleriGoster(liste) {
+        hediyeler = liste;
+        harita.hediyeleriGoster(liste);
+      },
+      hediyeVurgula: (id) => katman.vurgula(hediyeler.find((h) => h.id === id) ?? null),
+      gpsKonumu: (konum) => harita.gpsKonumu(konum),
+      oyuncuyaOdaklan: () => harita.oyuncuyaOdaklan(),
       yerIsaretle: (yer) => katman.isaretle(yer),
       yerDurumu: (enlem, boylam) => yerlesim.durum(enlem, boylam),
       yerler,
@@ -120,6 +129,7 @@ export async function apiKur({ osm, izgara, sahne, kamera, kontroller, tuval, ze
         kontroller.update();
       },
       on(olay, cb) {
+        if (olay === 'hediye-tiklandi') return harita.on(olay, cb);
         dinleyiciler[olay].add(cb);
         return () => dinleyiciler[olay].delete(cb);
       }

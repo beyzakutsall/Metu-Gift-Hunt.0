@@ -124,9 +124,10 @@ function osmTuru(t) {
   return null;
 }
 
-export async function elleEklenenleriYukle() {
+// adres: data/ klasörünün bulunduğu temel adres (verilmezse sayfanın adresi)
+export async function elleEklenenleriYukle(adres = document.baseURI) {
   try {
-    const yanit = await fetch('data/elle-eklenen.json');
+    const yanit = await fetch(new URL('data/elle-eklenen.json', adres));
     if (!yanit.ok) throw new Error(`HTTP ${yanit.status}`);
     return (await yanit.json()).nesneler || [];
   } catch (hata) {
