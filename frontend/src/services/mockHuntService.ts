@@ -4,11 +4,13 @@ import { mesafeMetre } from '../../../3d-harita/js/konum.js'
 import { AuthError } from '../types/auth'
 import type { Hunt, HuntService } from '../types/hunt'
 import { authService } from './authService'
+import { MOCK_ITEMS, MOCK_REWARD_ID } from './mockCollection'
 import { mockState } from './mockGameState'
 
 // UI development only: one sample gift in Matematik. The answer is "Cahit Arf".
 const LOCATION = { key: 'way/56753995', name: 'Matematik', fullName: 'Matematik Bölümü', latitude: 39.895664, longitude: 32.782291 }
-const REWARD = { item: { id: 2, chapter: 'creatures' as const, name: 'Good Dog', emoji: '🐶' }, note: 'You found the sample gift!' }
+// A function, because top-level work would keep the sample items in normal builds.
+const reward = () => ({ item: MOCK_ITEMS.find((item) => item.id === MOCK_REWARD_ID)!, note: 'You found the sample gift!' })
 
 export function createMockHuntService(): HuntService {
   const hunts = new Map<string, Hunt>()
@@ -72,7 +74,7 @@ export function createMockHuntService(): HuntService {
       }
       hunts.delete(id)
       mockState.found.add(id)
-      return REWARD
+      return reward()
     },
 
     async giveUp() {

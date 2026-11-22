@@ -209,10 +209,24 @@ test('a retried or parallel solve rewards once', async () => {
   assert.equal((await one('SELECT count(*)::int AS n FROM user_collection')).n, 1)
 })
 
-test('a find never repeats a sticker while any are locked', async () => {
+test('a find never repeats a collectible while any are locked', async () => {
   const { seeker, id } = await arrived()
   await pool.query('INSERT INTO user_collection (user_id, item_id) SELECT $1, id FROM collection_items WHERE id <> 17', [seeker.data.user.id])
   assert.equal((await solve(seeker.cookie, id)).data.item.id, 17)
+})
+
+test('gifts and finds never use a retired item', async () => {
+  const { seeker, id } = await arrived()
+  assert.ok((await one('SELECT item_id FROM gifts')).item_id <= 18)
+  await pool.query('UPDATE gifts SET item_id = 24') // hidden before the models arrived
+  const { data } = await solve(seeker.cookie, id)
+  assert.ok(data.item.id >= 1 && data.item.id <= 18)
+  assert.ok(data.item.credit.author)
+  for (const file of ['model', 'preview']) {
+    const response = await fetch(`${base}collection/${data.item.id}/${file}`, { headers: { cookie: seeker.cookie } })
+    assert.equal(response.status, 200)
+    await response.arrayBuffer()
+  }
 })
 
 test('five wrong answers end the hunt, even when sent together', async () => {

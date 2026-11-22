@@ -1,9 +1,9 @@
 import { ArrowRight, AtSign } from 'lucide-react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { PASSWORD_MIN, emailError, newPasswordError, usernameError } from '../../../../shared/authRules'
+import { useAuth } from '../../context/authState'
 import { useForm } from '../../hooks/useForm'
 import { authService } from '../../services/authService'
-import { savePending } from '../../services/pendingRegistration'
 import { Alert } from '../common/Alert'
 import { Button } from '../common/Button'
 import { Checkbox } from '../common/Checkbox'
@@ -13,7 +13,7 @@ import { EmailInput } from './EmailInput'
 import { PasswordInput } from './PasswordInput'
 
 export function RegisterForm() {
-  const navigate = useNavigate()
+  const { setUser } = useAuth()
 
   const form = useForm(
     { username: '', email: '', password: '', confirm: '', acceptTerms: false },
@@ -29,15 +29,14 @@ export function RegisterForm() {
       acceptTerms: values.acceptTerms ? undefined : 'Accept the Terms of Service to continue.',
     }),
     async ({ confirm: _confirm, ...values }) => {
-      const pending = await authService.register({ ...values, username: values.username.trim(), email: values.email.trim() })
-      savePending(pending)
-      navigate('/verify-email', { state: { pending } })
+      // Signed in straight away: the guest-only route then moves on to the student page.
+      setUser(await authService.register({ ...values, username: values.username.trim(), email: values.email.trim() }))
     },
   )
 
   return (
     <>
-      <PageHeading title="Start your adventure">All you need is your METU email.</PageHeading>
+      <PageHeading title="Start your adventure">All you need is your METU email and a password.</PageHeading>
       <form noValidate onSubmit={form.submit} aria-busy={form.busy} className="space-y-field">
         {form.error && <Alert tone="error">{form.error}</Alert>}
         <Input

@@ -32,7 +32,7 @@ export function StartHunt({ profile, available, onStarted, onStale }: Props) {
         <li>You get a random main location, like a department building.</li>
         <li>Walk there. GPS unlocks a clue when you’re close.</li>
         <li>Follow the clue, solve the riddle and take a photo.</li>
-        <li>The sticker unlocks in your booklet.</li>
+        <li>Open the 3D gift. It unlocks in your booklet.</li>
       </ol>
       <p className="rounded-control bg-butter px-3 py-2 text-caption font-bold">
         {left} of {profile.searches.limit} searches left today

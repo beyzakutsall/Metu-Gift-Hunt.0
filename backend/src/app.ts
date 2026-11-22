@@ -3,6 +3,8 @@ import helmet from 'helmet'
 import type pg from 'pg'
 import { createAuthRoutes } from './authRoutes.js'
 import { createAuthService } from './authService.js'
+import { createCollectionRoutes } from './collectionRoutes.js'
+import { createCollectionService } from './collectionService.js'
 import { AppError } from './errors.js'
 import { createGiftRoutes } from './giftRoutes.js'
 import { createGiftService } from './giftService.js'
@@ -59,6 +61,7 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
   })
   app.use('/api/auth', createAuthRoutes(auth, limiter, cookie))
   app.use('/api/student', createStudentRoutes(requireUser, createStudentService(pool)))
+  app.use('/api/collection', createCollectionRoutes(requireUser, createCollectionService(pool)))
   app.use('/api/gifts', createGiftRoutes(requireUser, createGiftService(pool, hub), limiter))
   app.use('/api/notifications', createNotificationRoutes(requireUser, createNotificationService(pool), hub))
   app.use(() => {

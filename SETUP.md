@@ -6,7 +6,8 @@ The project brief is in [README.md](README.md). This file covers running the cod
 
 - Node.js 22.12 or newer
 - A running PostgreSQL, 14 or newer
-- An internet connection and WebGL 2 for the map, which loads three.js from a CDN
+- An internet connection and WebGL 2 for the map, which loads three.js from a CDN. Without WebGL the booklet
+  shows pictures instead of 3D
 
 ## Run it
 
@@ -21,7 +22,7 @@ By default the API connects to local PostgreSQL as your OS user. For anything el
 
 Use `localhost:5173` rather than `127.0.0.1:5173`: the API checks the request origin.
 
-**Emails are not sent in development.** Verification and reset links are printed in the terminal running
+**Emails are not sent in development.** Password reset links are printed in the terminal running
 `npm run dev`. Set `SMTP_URL` and `MAIL_FROM` to send real email.
 
 ## Commands
@@ -48,9 +49,11 @@ shared/huntRules.ts        search radii, time and attempt limits
   js/secim-katmani.js      selection markers and campus boundary
   js/yerlesim.js           where a gift may be hidden, used by browser and server
 backend/
+  assets/collection/       optimized models, previews and their credits
   migrations/              numbered SQL files, applied once each
   src/authRoutes.ts        HTTP: input checks, cookies
   src/authService.ts       auth rules and queries
+  src/collectionRoutes.ts  sends a model only to its finder
   src/studentService.ts    booklet and activity counts
   src/giftService.ts       hiding gifts
   src/huntService.ts       assigning, checking in, solving
@@ -65,27 +68,27 @@ frontend/src/
   components/common/       Button, Input, Checkbox, Alert, PageHeading
   components/auth/         layout, forms, illustration
   components/map/          map frame and hide form
+  components/discovery/    3D gift reveal and viewer
   components/hunt/         search, clue, riddle, photo
   components/notifications/ bell and toast
-  components/student/      booklet, stickers, daily counters
+  components/student/      booklet, collectibles, daily counters
   pages/                   one file per screen
   hooks/useForm.ts         validation timing, loading, duplicate-submit guard
   services/authService.ts  chooses the real or mock implementation
 ```
 
-To change the schema, add a new file such as `005_reports.sql`. Never edit a migration that has been applied.
+To change the schema, add a new file such as `006_reports.sql`. Never edit a migration that has been applied.
 
 ## How authentication works
 
-1. Registering stores a *pending* registration and emails a link. No user exists yet, and the username isn't reserved.
-2. The link asks for the password chosen at registration, then creates the user and logs them in. The password
-   step stops someone from registering with another student's email and having that student activate it for them.
+1. Registering creates the account and logs in immediately. There is no email verification, by product decision.
+2. The address must end in `@metu.edu.tr`, but nothing proves the person owns it: anyone can type one.
 3. A session is a random token in an HttpOnly, SameSite cookie. The database stores only its hash. It lasts one
    day, or 30 days with "Remember me".
 4. Password reset links work once, for an hour, and log out every device.
 
-Passwords are hashed with scrypt. Login and password reset don't reveal which emails have accounts, and neither
-does registration with an available username.
+Passwords are hashed with scrypt. Login and password reset don't reveal which emails have accounts. Registration
+does, because it has to say that an email is taken.
 
 ## Student page and game data
 
@@ -94,17 +97,34 @@ counts, the next reset time and the booklet.
 
 - **Limits:** 2 searches and 3 hidden gifts per day, resetting at 00:00 in Ankara. To change them, edit
   `shared/gameRules.ts` and add a migration that replaces the `gift_actions_daily_limit` constraint.
-- **Locked stickers:** the API omits their name and emoji, so removing the CSS blur reveals nothing. The catalogue
-  is in a migration, so anyone who can read this repository can see it.
+- **Locked collectibles:** the API omits their name and credit and refuses their model and preview, so removing the
+  CSS blur reveals nothing. The catalogue and models are in the repository, so anyone who can read it can see them.
 - **Counters:** each search or hide is one row in `gift_actions`, with `slot` numbered from 1 within that day.
   The database rejects a slot over the limit and a slot used twice.
 - **Unlocking:** insert a row into `user_collection`. The page refreshes when it becomes visible again.
+
+## 3D collectibles
+
+There are 18 collectibles, in `backend/assets/collection/<id>.glb` with a `<id>.webp` preview. They were made from
+the 14 distinct models in `3d-coin-models/`: the cookie set became five. Never serve the originals to browsers
+(about 170 MB in total); the optimized copies total about 6 MB and load one at a time.
+
+- **Reveal:** solving opens a wrapped gift in the middle of the page. The student opens it, then turns and zooms
+  the model. In the booklet, a found collectible opens the same viewer.
+- **Adding one:** centre the model, fit it in a sphere of radius 1, keep it under 1.5 MB (meshopt and WebP are
+  supported), add both files and a line in `CREDITS.md`, then add a migration with `active` and `credit` set.
+- **Licences:** see `backend/assets/collection/CREDITS.md`. Six collectibles are non-commercial only.
+
+| Method | Path | Returns |
+| --- | --- | --- |
+| GET | `/api/collection/:id/model` | GLB, to its finder only |
+| GET | `/api/collection/:id/preview` | WebP, to its finder only |
 
 ## Hiding gifts
 
 `/hide` shows the map. A student chooses a main location, then writes a clue, a riddle, the accepted answer and a
 note for the finder. The server then, in one transaction, uses a daily slot, saves the gift with a randomly drawn
-sticker and records a notification.
+collectible and records a notification.
 
 - **Allowed places:** inside a building listed in `3d-harita/data/hediye-binalari.json`, or up to 75 m from one.
   Never off campus, in another building, on a car road or water, in Teknokent, or next to dorms, schools and
@@ -112,7 +132,7 @@ sticker and records a notification.
   with the `3d-harita` folder.
 - **Opening a building:** add it to `hediye-binalari.json` and restart the API. Students will walk in and take
   photos, so list only buildings open to every student. A name in `bina-adlari.json` doesn't open a building.
-- **Secrets:** students can list only their own gifts. The sticker inside is never sent to a browser.
+- **Secrets:** students can list only their own gifts. The collectible inside is never sent to a browser.
 - **Map limit:** the map ends at latitude 39.903 (`SINIR` in `projeksiyon.js`) and the campus reaches about 39.908,
   so the northern strip can't be used until the map is extended.
 - **Map contract:** the app talks only to `window.kampusHarita`, documented at the top of `3d-harita/js/api.js`.
@@ -147,7 +167,7 @@ serverless hosting such as Vercel functions doesn't suit it.
    for GPS error, the server reveals the clue and riddle. Until then they aren't in any response.
 3. **Solve.** The student sends the answer, a photo and a current position (within 80 m, plus up to 70 m for GPS
    error indoors). Five wrong answers end the hunt. Place and photo problems don't cost an attempt.
-4. **Unlock.** The sticker joins the booklet, the note is revealed and the gift is retired. A sticker the finder
+4. **Unlock.** The collectible joins the booklet, the note is revealed and the gift is retired. A collectible the finder
    already has is swapped for one they don't.
 
 Answers ignore capitals, Turkish letters, punctuation and generic words such as "hall" or "salonu", and forgive
@@ -178,8 +198,6 @@ All under `/api/auth`, JSON only.
 | Method | Path | Body |
 | --- | --- | --- |
 | POST | `/register` | `username, email, password, acceptTerms` |
-| POST | `/resend-verification` | `registrationId` |
-| POST | `/verify-email` | `token, password` |
 | POST | `/login` | `email, password, remember` |
 | GET | `/session` | |
 | POST | `/logout` | `{}` |
@@ -189,7 +207,10 @@ All under `/api/auth`, JSON only.
 ## Before launch
 
 - Replace the placeholder Terms page and add a KVKK privacy notice.
-- Configure SMTP and test delivery to a real METU inbox.
+- Configure SMTP for password resets and test delivery to a real METU inbox.
+- Decide how to handle fake and duplicate accounts. Without verification one person can open many, get extra
+  searches, or find their own gifts.
+- Check the non-commercial model licences and the brand logos on the teapot and cars suit how the app is published.
 - Serve `frontend/dist` and proxy `/api` on one HTTPS origin, with `NODE_ENV=production` and `TRUST_PROXY` set.
 - Move rate limits and notification fan-out to a shared store if more than one API process runs.
 - Add a way to report or remove notes, clues, riddles and photos, because strangers see them.

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import type pg from 'pg'
 import { transaction } from './database.js'
 import { AppError } from './errors.js'
@@ -15,22 +14,17 @@ interface User {
 const DAY = 86_400_000
 const invalidLink = () =>
   new AppError(400, 'INVALID_LINK', 'This link is invalid, expired or already used. Please request a new one.')
-const usernameTaken = () =>
-  new AppError(409, 'USERNAME_TAKEN', 'That username is already taken.', { field: 'username' })
+const TAKEN: Record<string, () => AppError> = {
+  users_email_key: () =>
+    new AppError(409, 'EMAIL_TAKEN', 'This email already has an account. Log in or reset its password.', { field: 'email' }),
+  users_username_key: () =>
+    new AppError(409, 'USERNAME_TAKEN', 'That username is already taken.', { field: 'username' }),
+}
 
 export function createAuthService(pool: pg.Pool, mailer: Mailer, limiter: RateLimiter, appUrl: string) {
   // Not awaited, so SMTP latency can't reveal which addresses have accounts.
   function send(mail: Mail) {
     mailer.send(mail).catch((error) => console.error('Email delivery failed:', error.message))
-  }
-
-  function sendVerification(to: string, username: string, token: string) {
-    send({
-      to,
-      subject: 'Verify your Campus Quest account',
-      // Tokens go in the fragment, which browsers never send to servers or their logs.
-      text: `Confirm the account "${username}" within 24 hours:\n\n${appUrl}/verify-email/confirm#token=${token}\n\nYou'll need the password chosen at registration. If you didn't register, ignore this email.`,
-    })
   }
 
   async function createSession(db: pg.Pool | pg.PoolClient, user: User, remember: boolean) {
@@ -45,83 +39,24 @@ export function createAuthService(pool: pg.Pool, mailer: Mailer, limiter: RateLi
   }
 
   return {
+    // No email check: the account is usable at once, so an address doesn't prove who owns it.
     async register(username: string, email: string, password: string) {
-      limiter.hit(`mail:${email}`, 5, 60)
-      // Hash first so new and existing addresses take the same time.
+      limiter.hit(`register:${email}`, 20, 60)
       const passwordHash = await hashPassword(password)
-      const result = { email, delivery: mailer.delivery }
-
-      if ((await pool.query('SELECT 1 FROM users WHERE lower(username) = lower($1)', [username])).rowCount) {
-        throw usernameTaken()
-      }
-      if ((await pool.query('SELECT 1 FROM users WHERE email = $1', [email])).rowCount) {
-        send({
-          to: email,
-          subject: 'You already have a Campus Quest account',
-          text: `Someone tried to register with this email, but you already have an account.\n\nLog in: ${appUrl}/login\nReset your password: ${appUrl}/forgot-password`,
-        })
-        return { ...result, registrationId: randomUUID() }
-      }
-
-      const token = createToken()
-      const { rows } = await pool.query<{ id: string }>(
-        `INSERT INTO pending_registrations (username, email, password_hash, token_hash, expires_at)
-         VALUES ($1, $2, $3, $4, now() + interval '24 hours') RETURNING id`,
-        [username, email, passwordHash, hashToken(token)],
-      )
-      sendVerification(email, username, token)
-      return { ...result, registrationId: rows[0]!.id }
-    },
-
-    async resendVerification(id: string) {
-      limiter.hit(`resend:${id}`, 3, 60)
-      const { rows } = await pool.query<User>('SELECT id, username, email FROM pending_registrations WHERE id = $1', [id])
-      const pending = rows[0]
-      if (pending) {
-        const token = createToken()
-        await pool.query(
-          "UPDATE pending_registrations SET token_hash = $1, expires_at = now() + interval '24 hours' WHERE id = $2",
-          [hashToken(token), id],
-        )
-        sendVerification(pending.email, pending.username, token)
-      }
-      return { delivery: mailer.delivery }
-    },
-
-    // Needs the token and the password. Otherwise someone could register with a student's email and
-    // their own password, then wait for the student to click the link.
-    async verifyEmail(token: string, password: string) {
-      const tokenHash = hashToken(token)
-      limiter.hit(`verify:${tokenHash}`, 10, 15)
-      const { rows } = await pool.query(
-        'SELECT * FROM pending_registrations WHERE token_hash = $1 AND expires_at > now()',
-        [tokenHash],
-      )
-      const pending = rows[0]
-      if (!pending) throw invalidLink()
-      if (!(await verifyPassword(password, pending.password_hash))) {
-        throw new AppError(400, 'WRONG_PASSWORD', 'That isn’t the password chosen for this registration.', { field: 'password' })
-      }
-
       try {
         return await transaction(pool, async (db) => {
-          const claimed = await db.query('DELETE FROM pending_registrations WHERE id = $1 AND token_hash = $2', [pending.id, tokenHash])
-          if (!claimed.rowCount) throw invalidLink()
-          const created = await db.query<User>(
+          const { rows } = await db.query<User>(
             `INSERT INTO users (username, email, password_hash, terms_accepted_at)
-             VALUES ($1, $2, $3, $4) RETURNING id, username, email`,
-            [pending.username, pending.email, pending.password_hash, pending.terms_accepted_at],
+             VALUES ($1, $2, $3, now()) RETURNING id, username, email`,
+            [username, email, passwordHash],
           )
-          await db.query('DELETE FROM pending_registrations WHERE email = $1', [pending.email])
-          return createSession(db, created.rows[0]!, false)
+          return createSession(db, rows[0]!, false)
         })
       } catch (error) {
+        // The constraints decide, so two simultaneous registrations can't both win.
         const { code, constraint } = error as { code?: string; constraint?: string }
-        if (code !== '23505') throw error
-        if (constraint === 'users_username_key') {
-          throw new AppError(409, 'USERNAME_TAKEN', 'Someone claimed that username first. Please register again with another one.')
-        }
-        throw invalidLink()
+        const taken = code === '23505' ? TAKEN[constraint ?? ''] : undefined
+        throw taken ? taken() : error
       }
     },
 
@@ -129,20 +64,10 @@ export function createAuthService(pool: pg.Pool, mailer: Mailer, limiter: RateLi
       const key = `login:${ip}:${email}`
       limiter.hit(key, 10, 15)
       const user = (await pool.query('SELECT * FROM users WHERE email = $1', [email])).rows[0]
-      const pending = user
-        ? undefined
-        : (await pool.query(
-            'SELECT id, password_hash FROM pending_registrations WHERE email = $1 ORDER BY created_at DESC LIMIT 1',
-            [email],
-          )).rows[0]
-
-      if (!(await verifyPassword(password, (user ?? pending)?.password_hash))) {
+      if (!(await verifyPassword(password, user?.password_hash))) {
         throw new AppError(401, 'INVALID_CREDENTIALS', 'That email and password don’t match. Check them and try again.')
       }
       limiter.clear(key)
-      if (pending) {
-        throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Verify your email before logging in.', { registrationId: pending.id })
-      }
       return createSession(pool, user, remember)
     },
 
@@ -196,8 +121,6 @@ export function createAuthService(pool: pg.Pool, mailer: Mailer, limiter: RateLi
     async deleteExpired() {
       await pool.query('DELETE FROM sessions WHERE expires_at <= now()')
       await pool.query('DELETE FROM password_resets WHERE expires_at <= now()')
-      // A week's grace, so an expired link can still be resent.
-      await pool.query("DELETE FROM pending_registrations WHERE expires_at <= now() - interval '7 days'")
     },
   }
 }

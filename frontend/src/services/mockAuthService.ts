@@ -16,7 +16,6 @@ async function digest(password: string) {
 
 export function createMockAuthService(): AuthService {
   const users = new Map<string, Account>()
-  const pending = new Map<string, Account>()
   const resets = new Map<string, Account>()
   let current: User | null = null
 
@@ -26,7 +25,6 @@ export function createMockAuthService(): AuthService {
   })
   const publicUser = ({ id, username, email }: Account): User => ({ id, username, email })
   const invalidLink = () => new AuthError('INVALID_LINK', 'This mock link is invalid or was already used.')
-  const verifyLink = (id: string) => `/verify-email/confirm#token=${id}`
 
   async function ready() {
     await Promise.all([pause(), seeded])
@@ -44,27 +42,11 @@ export function createMockAuthService(): AuthService {
       if ([...users.values()].some((user) => user.username.toLowerCase() === username.toLowerCase())) {
         throw new AuthError('USERNAME_TAKEN', 'That username is already taken.', 'username')
       }
-      const id = crypto.randomUUID()
-      const result = { registrationId: id, email, delivery: 'mock' as const }
-      if (users.has(email)) return result
-      pending.set(id, { id, username, email, digest: await digest(input.password) })
-      return { ...result, devLink: verifyLink(id) }
-    },
-
-    async resendVerification(id) {
-      await ready()
-      return { delivery: 'mock', devLink: pending.has(id) ? verifyLink(id) : undefined }
-    },
-
-    async verifyEmail(token, password) {
-      await ready()
-      const account = pending.get(token)
-      if (!account) throw invalidLink()
-      if (account.digest !== (await digest(password))) {
-        throw new AuthError('WRONG_PASSWORD', 'That isn’t the password chosen for this registration.', 'password')
+      if (users.has(email)) {
+        throw new AuthError('EMAIL_TAKEN', 'This email already has an account. Log in or reset its password.', 'email')
       }
-      pending.delete(token)
-      users.set(account.email, account)
+      const account = { id: crypto.randomUUID(), username, email, digest: await digest(input.password) }
+      users.set(email, account)
       current = publicUser(account)
       return current
     },
@@ -72,12 +54,9 @@ export function createMockAuthService(): AuthService {
     async login(input) {
       await ready()
       const email = input.email.trim().toLowerCase()
-      const account = users.get(email) ?? [...pending.values()].findLast((item) => item.email === email)
+      const account = users.get(email)
       if (!account || account.digest !== (await digest(input.password))) {
         throw new AuthError('INVALID_CREDENTIALS', 'That email and password don’t match. Check them and try again.')
-      }
-      if (!users.has(email)) {
-        throw new AuthError('EMAIL_NOT_VERIFIED', 'Verify your email before logging in.', undefined, account.id)
       }
       current = publicUser(account)
       return current

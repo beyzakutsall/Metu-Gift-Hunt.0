@@ -1,4 +1,4 @@
-import type { ChapterId } from './student'
+import type { FoundItem } from './student'
 
 export interface Hunt {
   id: string
@@ -25,7 +25,7 @@ export interface CheckIn {
 }
 
 export interface Reward {
-  item: { id: number; chapter: ChapterId; name: string; emoji: string }
+  item: FoundItem
   note: string
 }
 

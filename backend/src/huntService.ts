@@ -49,7 +49,7 @@ const CANDIDATE = `
 const notFound = () => new AppError(404, 'NOT_FOUND', 'Hunt not found.')
 const ended = () => new AppError(409, 'HUNT_ENDED', 'This hunt has ended. Start a new search.')
 
-/** The only place a hunt becomes JSON. The gift's spot, note, answers and sticker are never in it. */
+/** The only place a hunt becomes JSON. The gift's spot, note, answers and collectible are never in it. */
 function view(hunt: HuntRow) {
   const building = findBuilding(hunt.location_key)
   if (!building) return null
@@ -91,7 +91,7 @@ export function createHuntService(pool: pg.Pool) {
 
   async function reward(db: Db, userId: string, id: string) {
     const { rows } = await db.query(
-      `SELECT i.id, i.chapter, i.name, i.emoji, g.note
+      `SELECT i.id, i.chapter, i.name, i.credit, g.note
        FROM hunts h JOIN gifts g ON g.id = h.gift_id JOIN collection_items i ON i.id = h.item_id
        WHERE h.id = $1 AND h.seeker_id = $2`,
       [id, userId],
@@ -201,11 +201,12 @@ export function createHuntService(pool: pg.Pool) {
           return { wrong }
         }
 
-        // Two finds by one student can't overlap: they have one active hunt. A sticker they already
+        // Two finds by one student can't overlap: they have one active hunt. A collectible they already
         // own becomes one they don't, so every find unlocks something until the booklet is full.
         const { rows } = await db.query<{ id: number }>(
           `SELECT i.id FROM collection_items i
            LEFT JOIN user_collection c ON c.item_id = i.id AND c.user_id = $1
+           WHERE i.active
            ORDER BY (c.user_id IS NOT NULL), (i.id <> $2), random()
            LIMIT 1`,
           [userId, hunt.gift_item_id],

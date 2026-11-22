@@ -100,7 +100,7 @@ export function HideGiftPage() {
         )
       }
     >
-      <PageHeading title="Hide a gift">A surprise sticker goes inside. You set the place, the clue and the riddle.</PageHeading>
+      <PageHeading title="Hide a gift">A surprise 3D collectible goes inside. You set the place, the clue and the riddle.</PageHeading>
 
       {profile && (
         <p className="rounded-control bg-butter px-3 py-2 text-caption font-bold">

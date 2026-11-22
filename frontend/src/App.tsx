@@ -7,8 +7,6 @@ import { NotificationToast } from './components/notifications/NotificationToast'
 import { useAuth } from './context/authState'
 import { NotificationsProvider } from './context/NotificationsContext'
 import { AuthPage } from './pages/AuthPage'
-import { ConfirmEmail } from './pages/ConfirmEmail'
-import { EmailVerification } from './pages/EmailVerification'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { HideGiftPage } from './pages/HideGiftPage'
 import { ResetPassword } from './pages/ResetPassword'
@@ -55,8 +53,6 @@ export function App() {
             <Route path="register" element={<RegisterForm />} />
           </Route>
         </Route>
-        <Route path="verify-email" element={<EmailVerification />} />
-        <Route path="verify-email/confirm" element={<ConfirmEmail />} />
         <Route path="forgot-password" element={<ForgotPassword />} />
         <Route path="reset-password" element={<ResetPassword />} />
         <Route path="terms" element={<Terms />} />

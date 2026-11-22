@@ -76,7 +76,7 @@ export function SearchPage() {
         )
       }
     >
-      <PageHeading title="Find a gift">Somebody hid a sticker for you to discover.</PageHeading>
+      <PageHeading title="Find a gift">Somebody hid a collectible for you to discover.</PageHeading>
       {endedMessage && <Alert tone="error">{endedMessage}</Alert>}
       {error && (
         <div className="space-y-2">

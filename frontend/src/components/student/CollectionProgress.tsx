@@ -23,7 +23,7 @@ export function CollectionProgress({ found, total }: { found: number; total: num
       </svg>
       <p>
         <strong className="block font-display text-xl">
-          {found} of {total} stickers
+          {found} of {total} collectibles
         </strong>
         <span className="text-caption text-ink">
           {found === 0 ? 'Your first find is out there.' : found === total ? 'Booklet complete!' : 'Keep exploring!'}

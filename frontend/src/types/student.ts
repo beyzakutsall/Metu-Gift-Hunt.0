@@ -11,9 +11,24 @@ interface ItemBase {
   chapter: ChapterId
 }
 
-/** A locked item carries no name or emoji: the server withholds them until it is found. */
-export type CollectionItem = ItemBase &
-  ({ foundAt: null; name: null; emoji: null } | { foundAt: string; name: string; emoji: string })
+export interface ModelCredit {
+  title: string
+  author: string
+  source: string
+  license: string
+  licenseUrl: string
+  changes: string
+}
+
+export interface FoundItem extends ItemBase {
+  name: string
+  credit: ModelCredit
+}
+
+/** A locked item carries no name, credit or model: the server withholds them until it is found. */
+export type CollectionItem =
+  | (ItemBase & { foundAt: null; name: null; credit: null })
+  | (FoundItem & { foundAt: string })
 
 export interface StudentProfile {
   searches: Allowance

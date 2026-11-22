@@ -5,8 +5,6 @@ import { AppError } from './errors.js'
 import type { RateLimiter } from './rateLimit.js'
 import type { SessionCookie } from './sessionCookie.js'
 
-const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
-
 function read(req: Request, field: string, validate: (value: string) => string | undefined) {
   const raw: unknown = req.body?.[field]
   const value = typeof raw === 'string' ? raw : ''
@@ -43,16 +41,7 @@ export function createAuthRoutes(auth: AuthService, limiter: RateLimiter, cookie
     if (req.body?.acceptTerms !== true) {
       throw new AppError(400, 'VALIDATION', 'Accept the Terms of Service to continue.', { field: 'acceptTerms' })
     }
-    res.status(202).json(await auth.register(username, email, password))
-  })
-
-  router.post('/resend-verification', async (req, res) => {
-    const id = read(req, 'registrationId', (value) => (UUID.test(value) ? undefined : 'Please register again.'))
-    res.status(202).json(await auth.resendVerification(id))
-  })
-
-  router.post('/verify-email', async (req, res) => {
-    startSession(res, await auth.verifyEmail(readToken(req), read(req, 'password', currentPasswordError)))
+    startSession(res.status(201), await auth.register(username, email, password))
   })
 
   router.post('/login', async (req, res) => {

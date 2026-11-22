@@ -18,13 +18,14 @@ export function createStudentService(pool: pg.Pool) {
            GROUP BY t.day`,
           [userId, CAMPUS_TIME_ZONE],
         ),
-        // Name and emoji leave the database only once found. CSS blur alone can be removed in devtools.
+        // Name and credit (which names the model) leave the database only once found. CSS blur alone can be removed in devtools.
         pool.query(
           `SELECT i.id, i.chapter, c.found_at AS "foundAt",
              CASE WHEN c.user_id IS NOT NULL THEN i.name END AS name,
-             CASE WHEN c.user_id IS NOT NULL THEN i.emoji END AS emoji
+             CASE WHEN c.user_id IS NOT NULL THEN i.credit END AS credit
            FROM collection_items i
            LEFT JOIN user_collection c ON c.item_id = i.id AND c.user_id = $1
+           WHERE i.active
            ORDER BY i.id`,
           [userId],
         ),

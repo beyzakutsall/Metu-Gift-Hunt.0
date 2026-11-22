@@ -1,11 +1,9 @@
 import { ArrowRight } from 'lucide-react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { currentPasswordError, emailError } from '../../../../shared/authRules'
 import { useAuth } from '../../context/authState'
 import { useForm } from '../../hooks/useForm'
 import { authService } from '../../services/authService'
-import { savePending } from '../../services/pendingRegistration'
-import { AuthError } from '../../types/auth'
 import { Alert } from '../common/Alert'
 import { Button } from '../common/Button'
 import { Checkbox } from '../common/Checkbox'
@@ -16,21 +14,11 @@ import { PasswordInput } from './PasswordInput'
 export function LoginForm() {
   const { setUser } = useAuth()
   const { state } = useLocation()
-  const navigate = useNavigate()
 
   const form = useForm(
     { email: (state?.email as string) ?? '', password: '', remember: false },
     (values) => ({ email: emailError(values.email), password: currentPasswordError(values.password) }),
-    async (values) => {
-      try {
-        setUser(await authService.login({ ...values, email: values.email.trim() }))
-      } catch (error) {
-        if (!(error instanceof AuthError && error.code === 'EMAIL_NOT_VERIFIED' && error.registrationId)) throw error
-        const pending = { registrationId: error.registrationId, email: values.email.trim().toLowerCase() }
-        savePending(pending)
-        navigate('/verify-email', { state: { pending, unverified: true } })
-      }
-    },
+    async (values) => setUser(await authService.login({ ...values, email: values.email.trim() })),
   )
 
   return (

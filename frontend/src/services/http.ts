@@ -21,7 +21,6 @@ export async function request<T>(path: string, body?: object, timeoutMs = 15_000
       error?.code ?? 'UNAVAILABLE',
       error?.message ?? 'Campus Quest is unavailable right now. Please try again shortly.',
       error?.field,
-      error?.registrationId,
     )
   }
   return data as T
