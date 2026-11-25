@@ -15,7 +15,7 @@ import { createNotificationHub } from './notificationHub.js'
 import { createNotificationRoutes } from './notificationRoutes.js'
 import { createNotificationService } from './notificationService.js'
 import { createRateLimiter } from './rateLimit.js'
-import { createRequireUser } from './requireUser.js'
+import { createRequireSession, createRequireUser } from './requireUser.js'
 import { createSessionCookie } from './sessionCookie.js'
 import { createStudentRoutes } from './studentRoutes.js'
 import { createStudentService } from './studentService.js'
@@ -59,7 +59,7 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy }: O
     await pool.query('SELECT 1')
     res.json({ status: 'ok' })
   })
-  app.use('/api/auth', createAuthRoutes(auth, limiter, cookie))
+  app.use('/api/auth', createAuthRoutes(auth, limiter, cookie, createRequireSession(auth, cookie)))
   app.use('/api/student', createStudentRoutes(requireUser, createStudentService(pool)))
   app.use('/api/collection', createCollectionRoutes(requireUser, createCollectionService(pool)))
   app.use('/api/gifts', createGiftRoutes(requireUser, createGiftService(pool, hub), limiter))

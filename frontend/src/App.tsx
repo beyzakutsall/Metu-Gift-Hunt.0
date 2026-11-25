@@ -10,17 +10,28 @@ import { AuthPage } from './pages/AuthPage'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { HideGiftPage } from './pages/HideGiftPage'
 import { ResetPassword } from './pages/ResetPassword'
+import { VerifyEmail } from './pages/VerifyEmail'
 import { Terms } from './pages/Terms'
 import { SearchPage } from './pages/SearchPage'
 import { StudentPage } from './pages/StudentPage'
 
 function GuestOnly() {
-  return useAuth().user ? <Navigate to="/student" replace /> : <Outlet />
+  const { user } = useAuth()
+  if (user) return <Navigate to={user.verified ? '/student' : '/verify-email'} replace />
+  return <Outlet />
+}
+
+function UnverifiedOnly() {
+  const { user } = useAuth()
+  if (!user) return <Navigate to="/login" replace />
+  if (user.verified) return <Navigate to="/student" replace />
+  return <Outlet />
 }
 
 function SignedInOnly() {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
+  if (!user.verified) return <Navigate to="/verify-email" replace />
   return (
     <NotificationsProvider key={user.id}>
       <NotificationToast />
@@ -34,7 +45,7 @@ export function App() {
     return (
       <div role="status" className="grid min-h-dvh place-items-center">
         <LoaderCircle className="size-8 animate-spin text-forest" aria-hidden />
-        <span className="sr-only">Loading Campus Quest</span>
+        <span className="sr-only">Loading METU Gift Hunt</span>
       </div>
     )
   }
@@ -52,6 +63,9 @@ export function App() {
             <Route path="login" element={<LoginForm />} />
             <Route path="register" element={<RegisterForm />} />
           </Route>
+        </Route>
+        <Route element={<UnverifiedOnly />}>
+          <Route path="verify-email" element={<VerifyEmail />} />
         </Route>
         <Route path="forgot-password" element={<ForgotPassword />} />
         <Route path="reset-password" element={<ResetPassword />} />

@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from 'express'
-import { currentPasswordError, emailError, newPasswordError, usernameError } from '../../shared/authRules.js'
+import { currentPasswordError, emailError, newPasswordError, usernameError, verifyCodeError } from '../../shared/authRules.js'
 import type { AuthService } from './authService.js'
 import { AppError } from './errors.js'
 import type { RateLimiter } from './rateLimit.js'
+import type { createRequireSession } from './requireUser.js'
 import type { SessionCookie } from './sessionCookie.js'
 
 function read(req: Request, field: string, validate: (value: string) => string | undefined) {
@@ -17,7 +18,12 @@ const readEmail = (req: Request) => read(req, 'email', emailError).trim().toLowe
 const readToken = (req: Request) =>
   read(req, 'token', (value) => (/^[\w-]{43}$/.test(value) ? undefined : 'This link is invalid or incomplete.'))
 
-export function createAuthRoutes(auth: AuthService, limiter: RateLimiter, cookie: SessionCookie) {
+export function createAuthRoutes(
+  auth: AuthService,
+  limiter: RateLimiter,
+  cookie: SessionCookie,
+  requireSession: ReturnType<typeof createRequireSession>,
+) {
   const router = Router()
   const { name: cookieName, options: cookieOptions, read: sessionToken } = cookie
 
@@ -35,6 +41,8 @@ export function createAuthRoutes(auth: AuthService, limiter: RateLimiter, cookie
   })
 
   router.post('/register', async (req, res) => {
+    // Generous, because a whole lecture hall may sign up from one campus IP.
+    limiter.hit(`register-ip:${req.ip}`, 100, 60)
     const username = read(req, 'username', usernameError).trim()
     const email = readEmail(req)
     const password = read(req, 'password', newPasswordError)
@@ -58,6 +66,18 @@ export function createAuthRoutes(auth: AuthService, limiter: RateLimiter, cookie
     await auth.logout(sessionToken(req))
     res.clearCookie(cookieName, cookieOptions)
     res.status(204).end()
+  })
+
+  router.post('/verify-email', async (req, res) => {
+    const user = await requireSession(req)
+    limiter.hit(`verify:${user.id}`, 20, 15)
+    const code = read(req, 'code', verifyCodeError).replace(/\s/g, '')
+    res.json({ user: await auth.verifyEmail(user, code) })
+  })
+
+  router.post('/resend-verification', async (req, res) => {
+    const user = await requireSession(req)
+    res.status(202).json(await auth.resendVerification(user))
   })
 
   router.post('/forgot-password', async (req, res) => {

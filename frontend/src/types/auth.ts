@@ -2,6 +2,8 @@ export interface User {
   id: string
   username: string
   email: string
+  /** Entered the code emailed to their METU address. Only verified students can play. */
+  verified: boolean
 }
 
 export interface LoginInput {
@@ -21,13 +23,16 @@ export interface RegisterInput {
 export interface DeliveryResult {
   delivery: 'email' | 'console' | 'mock'
   devLink?: string
+  devCode?: string
 }
 
 /** The UI depends only on this contract. */
 export interface AuthService {
   getSession(): Promise<User | null>
-  /** Creates the account and signs in. */
+  /** Creates the account, signs in, and emails a verification code. */
   register(input: RegisterInput): Promise<User>
+  verifyEmail(code: string): Promise<User>
+  resendVerification(): Promise<DeliveryResult>
   login(input: LoginInput): Promise<User>
   logout(): Promise<void>
   forgotPassword(email: string): Promise<DeliveryResult>
