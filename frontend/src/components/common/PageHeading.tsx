@@ -6,7 +6,7 @@ export function PageHeading({ title, children }: { title: string; children?: Rea
   const { key } = useLocation()
 
   useEffect(() => {
-    document.title = `${title} · Campus Quest`
+    document.title = `${title} · METU Gift Hunt`
   }, [title])
 
   useEffect(() => {

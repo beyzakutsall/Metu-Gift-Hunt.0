@@ -20,6 +20,6 @@ export const config = {
   databaseUrl: env.DATABASE_URL || 'postgresql://localhost:5432/campus_quest',
   appUrl: new URL(env.APP_URL || 'http://localhost:5173').origin,
   smtpUrl: env.SMTP_URL || '',
-  mailFrom: env.MAIL_FROM || 'Campus Quest <no-reply@example.com>',
+  mailFrom: env.MAIL_FROM || 'METU Gift Hunt <no-reply@example.com>',
   trustProxy: Number(env.TRUST_PROXY || 0),
 }
