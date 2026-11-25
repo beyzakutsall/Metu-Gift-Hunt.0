@@ -168,6 +168,8 @@ Bu plan için gereken kod değişiklikleri:
 - Repoya `render.yaml` (Blueprint): build `npm ci && npm run build`, start `npm start -w backend`, `NODE_ENV=production`, `TRUST_PROXY=1`, `HOST=0.0.0.0`, sağlık kontrolü `/api/health`. Gizli değerler (`DATABASE_URL`, `BREVO_API_KEY`) `sync: false`, panelden girilir.
 - `SETUP.md`'ye yayın adımları.
 
+Yerelde prod denemesi: `APP_URL` `localhost` ise `http://` ve e-postasız (konsola yazan) çalışmaya izin verilir, başka her adreste https ve e-posta zorunlu. CSP `backend/src/frontend.ts` içinde: yeni bir CDN eklenirse oraya da eklenmeli.
+
 Hesap açma (Render, Neon, Brevo, Student Pack) proje sahibinin işi. Claude Code gizli anahtarları asla repoya yazmaz, sadece hangi değişkenin nereye girileceğini söyler.
 
 ## 6. Lansman gereksinimleri (ODTÜ geneli)
@@ -190,7 +192,8 @@ Durumu güncel tut: `[ ]` yapılmadı, `[x]` bitti.
 - [x] S1 e-posta doğrulama (migration, uçlar, `requireUser` kontrolü, testler, `/verify-email` sayfası)
 - [x] İsim birliği (METU Gift Hunt), kopya klasörler, README/docs, Pages yayınını elle çalışır yap
 - [x] Ferrari modelleri ve `(1)` kopyaları silindi (`3d-coin-models/` kalanlar item adayı)
-- [ ] Ücretsiz yayın: Bölüm 6a'daki kod değişiklikleri + Render/Neon/Brevo kurulumu
+- [x] Ücretsiz yayın kod değişiklikleri (Bölüm 6a): `HOST`, `frontend.ts` ile aynı origin + CSP, Brevo, `render.yaml`, SETUP.md
+- [ ] Render/Neon/Brevo hesap ve panel kurulumu (proje sahibi)
 - [ ] Prod sunucu, DB, SMTP, alan adı
 
 **Gün 2: Dijital item ve kamera eşleme MVP**

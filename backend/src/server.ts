@@ -18,15 +18,17 @@ const { app, auth } = createApp({
   appUrl: config.appUrl,
   secureCookies: config.production,
   trustProxy: config.trustProxy,
+  frontendDir: config.frontendDir,
 })
 
 const cleanUp = () => auth.deleteExpired().catch((error) => console.error('Cleanup failed:', error.message))
 await cleanUp()
 setInterval(cleanUp, 60 * 60_000).unref()
 
-const server = app.listen(config.port, '127.0.0.1', (error) => {
+// Local only by default. A host such as Render sets HOST=0.0.0.0 to reach its own proxy.
+const server = app.listen(config.port, config.host, (error) => {
   if (error) throw error
-  console.log(`API on http://127.0.0.1:${config.port} (email: ${mailer.delivery})`)
+  console.log(`API on http://${config.host}:${config.port} (email: ${mailer.delivery}${config.frontendDir ? ', serving the frontend' : ''})`)
 })
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
