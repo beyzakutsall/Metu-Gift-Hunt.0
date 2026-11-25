@@ -150,6 +150,26 @@ Repoda sızmış gizli anahtar bulunmadı. GitHub secret scanning açık tutulma
 
 ---
 
+## 6a. Ücretsiz yayın planı (karar verildi)
+
+Bütçe yok, her şey ücretsiz katmanlarda çalışacak:
+
+| İhtiyaç | Servis | Ücretsiz sınır / dikkat |
+|---|---|---|
+| Uygulama (API + frontend) | **Render** free web service | 15 dk boşta kalınca uyur, ilk istek ~1 dk sürer. Free planda **SMTP portları (25/465/587) kapalı**, e-posta HTTP API ile gönderilmeli. Adres: `https://<isim>.onrender.com` |
+| PostgreSQL | **Neon** free | Proje başına 1 GB, 100 CU-saat/ay, boşta 5 dk sonra uyur. Bağlantı adresinde `sslmode=require` olmalı |
+| E-posta | **Brevo** free, **HTTP API** (`https://api.brevo.com/v3/smtp/email`, `api-key` başlığı) | Günde 300 e-posta (lansman günü kayıt patlamasında sınır olabilir). İyi teslimat için kendi alan adıyla DKIM doğrulaması gerekir, gmail adresinden göndermek spam'e düşer |
+| Alan adı | GitHub Student Developer Pack, **Namecheap .me** (1 yıl ücretsiz) | Öğrenci onayı birkaç gün sürebilir. O zamana kadar `onrender.com` alt alanı kullanılır |
+
+Bu plan için gereken kod değişiklikleri:
+- `server.ts`: `127.0.0.1` yerine `HOST` ortam değişkeni (Render'da `0.0.0.0`), port `PORT`'tan.
+- Prod'da Express `frontend/dist` ve `3d-harita/` dosyalarını aynı origin'den sunsun (çerez ve origin kontrolü buna bağlı). SPA yönlendirmesi için bilinmeyen GET'lerde `index.html`. `/api` dışındaki sayfalarda helmet CSP'si haritanın kullandığı CDN'leri ve iframe'i engellemesin, bunu tarayıcıda test et.
+- `mailer.ts`: `BREVO_API_KEY` varsa Brevo HTTP API ile gönder, yoksa SMTP, o da yoksa konsol. `config.ts` prod kontrolü: `SMTP_URL` veya `BREVO_API_KEY`'den biri zorunlu.
+- Repoya `render.yaml` (Blueprint): build `npm ci && npm run build`, start `npm start -w backend`, `NODE_ENV=production`, `TRUST_PROXY=1`, `HOST=0.0.0.0`, sağlık kontrolü `/api/health`. Gizli değerler (`DATABASE_URL`, `BREVO_API_KEY`) `sync: false`, panelden girilir.
+- `SETUP.md`'ye yayın adımları.
+
+Hesap açma (Render, Neon, Brevo, Student Pack) proje sahibinin işi. Claude Code gizli anahtarları asla repoya yazmaz, sadece hangi değişkenin nereye girileceğini söyler.
+
 ## 6. Lansman gereksinimleri (ODTÜ geneli)
 
 - **Altyapı:** tek VPS (2 vCPU / 4 GB) veya Render/Railway, yönetilen PostgreSQL + günlük otomatik yedek, Caddy ile HTTPS, frontend `dist/` ve `/api` **aynı origin**. Prod ortam: `NODE_ENV=production`, `APP_URL=https://…`, `TRUST_PROXY=1`, `DATABASE_URL`, `SMTP_URL`, `MAIL_FROM`.
@@ -169,7 +189,8 @@ Durumu güncel tut: `[ ]` yapılmadı, `[x]` bitti.
 **Gün 1: Kimlik ve temizlik**
 - [x] S1 e-posta doğrulama (migration, uçlar, `requireUser` kontrolü, testler, `/verify-email` sayfası)
 - [x] İsim birliği (METU Gift Hunt), kopya klasörler, README/docs, Pages yayınını elle çalışır yap
-- [ ] `3d-coin-models/` model seçimi (kullanıcı karar verecek, Bölüm 5)
+- [x] Ferrari modelleri ve `(1)` kopyaları silindi (`3d-coin-models/` kalanlar item adayı)
+- [ ] Ücretsiz yayın: Bölüm 6a'daki kod değişiklikleri + Render/Neon/Brevo kurulumu
 - [ ] Prod sunucu, DB, SMTP, alan adı
 
 **Gün 2: Dijital item ve kamera eşleme MVP**
