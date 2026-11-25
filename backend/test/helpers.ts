@@ -9,7 +9,7 @@ import type { Mail } from '../src/mailer.js'
 
 // Uses a randomly named database and drops only that one afterwards.
 const adminUrl = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgresql://localhost:5432/postgres'
-const database = `campus_quest_test_${randomBytes(6).toString('hex')}`
+const database = `metu_gift_hunt_test_${randomBytes(6).toString('hex')}`
 export const appUrl = 'http://localhost:5173'
 export const password = 'correct horse battery'
 
@@ -18,6 +18,7 @@ let admin: pg.Client
 let server: Server
 export let base: string
 export let outbox: Mail[]
+export let auth: ReturnType<typeof createApp>['auth']
 
 before(async () => {
   admin = new pg.Client({ connectionString: adminUrl })
@@ -32,16 +33,17 @@ before(async () => {
 beforeEach(async () => {
   server?.closeAllConnections()
   server?.close()
-  await pool.query('TRUNCATE users, pending_registrations, sessions, password_resets CASCADE')
+  await pool.query('TRUNCATE users, email_verifications, sessions, password_resets CASCADE')
   outbox = []
   // A fresh app per test also means fresh rate limits.
-  const { app } = createApp({
+  let app
+  ;({ app, auth } = createApp({
     pool,
     appUrl,
     secureCookies: false,
     trustProxy: 0,
     mailer: { delivery: 'console', send: async (mail) => void outbox.push(mail) },
-  })
+  }))
   await new Promise<void>((resolve) => (server = app.listen(0, '127.0.0.1', () => resolve())))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/`
 })
@@ -70,6 +72,15 @@ export const register = (overrides: object = {}) =>
 
 export const lastToken = () => /#token=([\w-]+)/.exec(outbox.at(-1)!.text)![1]!
 
-export const createUser = register
+export const lastCode = () => /\b(\d{6})\b/.exec(outbox.at(-1)!.text)![1]!
+
+/** A registered student who has entered their emailed code, so they can play. */
+export async function createUser(overrides: object = {}) {
+  const result = await register(overrides)
+  if (result.status !== 201) return result
+  const verified = await post('verify-email', { code: lastCode() }, { cookie: result.cookie })
+  if (verified.status !== 200) throw new Error(`verification failed: ${JSON.stringify(verified.data)}`)
+  return { ...result, data: verified.data }
+}
 
 export const clearOutbox = () => void outbox.splice(0)

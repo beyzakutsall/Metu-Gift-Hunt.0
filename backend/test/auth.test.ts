@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { emailError } from '../../shared/authRules.js'
-import { appUrl, base, clearOutbox, createUser, lastToken, outbox, password, pool, post, register } from './helpers.js'
+import { appUrl, auth, base, clearOutbox, createUser, lastCode, lastToken, outbox, password, pool, post, register } from './helpers.js'
 
 const login = (overrides: object = {}) => post('login', { email: 'e123456@metu.edu.tr', password, ...overrides })
 const sessionUser = async (cookie: string) =>
@@ -36,17 +36,20 @@ test('registration validates every field on the server', async () => {
   assert.equal(outbox.length, 0)
 })
 
-test('registering creates the account and signs in, with no email', async () => {
+test('registering creates the account, signs in, and emails a code', async () => {
   const result = await register({ email: ' E123456@METU.EDU.TR ' })
   assert.equal(result.status, 201)
-  assert.deepEqual(Object.keys(result.data.user).sort(), ['email', 'id', 'username'])
+  assert.deepEqual(Object.keys(result.data.user).sort(), ['email', 'id', 'username', 'verified'])
+  assert.equal(result.data.user.verified, false)
   assert.equal(result.data.user.email, 'e123456@metu.edu.tr')
   assert.match(result.setCookie, /HttpOnly/)
   assert.match(result.setCookie, /SameSite=Lax/)
   assert.doesNotMatch(result.setCookie, /Max-Age/)
   assert.equal((await sessionUser(result.cookie)).username, 'explorer')
   assert.equal((await login()).status, 200)
-  assert.equal(outbox.length, 0)
+  assert.equal(outbox.length, 1)
+  assert.equal(outbox[0]!.to, 'e123456@metu.edu.tr')
+  assert.match(outbox[0]!.text, /\b\d{6}\b/)
 })
 
 test('no plaintext password or session token is stored', async () => {
@@ -59,8 +62,67 @@ test('no plaintext password or session token is stored', async () => {
   assert.ok(!rows.includes(cookie.split('=')[1]!))
 })
 
-test('the verification endpoints are gone', async () => {
-  for (const path of ['verify-email', 'resend-verification']) assert.equal((await post(path, {})).status, 404)
+const play = (cookie: string) => fetch(`${base}student/profile`, { headers: { cookie } })
+
+test('an unverified student can sign in but not play', async () => {
+  const { cookie } = await register()
+  const response = await play(cookie)
+  assert.equal(response.status, 403)
+  assert.equal(((await response.json()) as any).error.code, 'EMAIL_NOT_VERIFIED')
+  assert.equal((await sessionUser(cookie)).verified, false)
+})
+
+test('the emailed code verifies the account', async () => {
+  const { cookie } = await register()
+  assert.equal((await post('verify-email', { code: lastCode() })).status, 401)
+  const result = await post('verify-email', { code: ` ${lastCode().slice(0, 3)} ${lastCode().slice(3)} ` }, { cookie })
+  assert.equal(result.status, 200)
+  assert.equal(result.data.user.verified, true)
+  assert.equal((await sessionUser(cookie)).verified, true)
+  assert.equal((await play(cookie)).status, 200)
+  assert.equal((await (await login()).data.user.verified), true)
+  // Used up: and verifying again is harmless.
+  assert.equal((await post('verify-email', { code: '000000' }, { cookie })).status, 200)
+})
+
+test('wrong codes are limited, and a new code starts over', async () => {
+  const { cookie } = await register()
+  const right = lastCode()
+  const wrong = right === '000000' ? '111111' : '000000'
+  assert.equal((await post('verify-email', { code: 'abc' }, { cookie })).data.error.field, 'code')
+  for (let left = 4; left >= 1; left--) {
+    const result = await post('verify-email', { code: wrong }, { cookie })
+    assert.equal(result.data.error.code, 'WRONG_CODE')
+    assert.match(result.data.error.message, new RegExp(`${left} tr`))
+  }
+  assert.equal((await post('verify-email', { code: wrong }, { cookie })).data.error.code, 'CODE_EXPIRED')
+  assert.equal((await post('verify-email', { code: right }, { cookie })).data.error.code, 'CODE_EXPIRED')
+
+  assert.equal((await post('resend-verification', {}, { cookie })).status, 202)
+  assert.notEqual(lastCode(), undefined)
+  assert.equal((await post('verify-email', { code: lastCode() }, { cookie })).status, 200)
+})
+
+test('expired codes are refused', async () => {
+  const { cookie } = await register()
+  await pool.query("UPDATE email_verifications SET expires_at = now() - interval '1 second'")
+  assert.equal((await post('verify-email', { code: lastCode() }, { cookie })).data.error.code, 'CODE_EXPIRED')
+})
+
+test('resending codes is rate limited', async () => {
+  const { cookie } = await register() // the first of five an hour
+  for (let i = 0; i < 4; i++) assert.equal((await post('resend-verification', {}, { cookie })).status, 202)
+  assert.equal((await post('resend-verification', {}, { cookie })).status, 429)
+})
+
+test('a password reset proves the inbox, so the owner can take back a squatted address', async () => {
+  const squatter = await register()
+  await post('forgot-password', { email: 'e123456@metu.edu.tr' })
+  assert.equal((await post('reset-password', { token: lastToken(), password: 'the real owner' })).status, 204)
+  assert.equal(await sessionUser(squatter.cookie), null)
+  const owner = await login({ password: 'the real owner' })
+  assert.equal(owner.data.user.verified, true)
+  assert.equal((await play(owner.cookie)).status, 200)
 })
 
 test('wrong password and unknown email look identical', async () => {
@@ -157,4 +219,13 @@ test('login guessing, registering and reset emails are rate limited', async () =
   const forgot = () => post('forgot-password', { email: 'e123456@metu.edu.tr' })
   for (let i = 0; i < 5; i++) assert.equal((await forgot()).status, 202)
   assert.equal((await forgot()).status, 429)
+})
+
+test('unverified accounts are deleted after a day, verified ones are kept', async () => {
+  await register()
+  await createUser({ username: 'verified', email: 'verified@metu.edu.tr' })
+  await pool.query("UPDATE users SET created_at = now() - interval '25 hours'")
+  await auth.deleteExpired()
+  const { rows } = await pool.query('SELECT username FROM users')
+  assert.deepEqual(rows.map((row) => row.username), ['verified'])
 })

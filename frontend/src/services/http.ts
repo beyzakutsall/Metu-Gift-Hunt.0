@@ -11,7 +11,7 @@ export async function request<T>(path: string, body?: object, timeoutMs = 15_000
       signal: AbortSignal.timeout(timeoutMs),
     })
   } catch {
-    throw new AuthError('NETWORK', 'We can’t reach Campus Quest. Check your connection and try again.')
+    throw new AuthError('NETWORK', 'We can’t reach METU Gift Hunt. Check your connection and try again.')
   }
 
   const data = await response.json().catch(() => null)
@@ -19,7 +19,7 @@ export async function request<T>(path: string, body?: object, timeoutMs = 15_000
     const error = data?.error
     throw new AuthError(
       error?.code ?? 'UNAVAILABLE',
-      error?.message ?? 'Campus Quest is unavailable right now. Please try again shortly.',
+      error?.message ?? 'METU Gift Hunt is unavailable right now. Please try again shortly.',
       error?.field,
     )
   }

@@ -5,7 +5,7 @@ import { CampusIllustration } from './CampusIllustration'
 export function AuthLayout() {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-2">
-      <aside aria-label="About Campus Quest" className="bg-mint">
+      <aside aria-label="About METU Gift Hunt" className="bg-mint">
         {/* desktop */}
         <div className="sticky top-0 hidden min-h-dvh flex-col justify-between gap-6 p-8 lg:flex xl:px-14 xl:py-10">
           <Brand />

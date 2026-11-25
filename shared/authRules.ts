@@ -34,3 +34,14 @@ export function currentPasswordError(value: string): string | undefined {
   if (!value) return 'Enter your password.'
   if (value.length > PASSWORD_MAX) return 'That password is too long.'
 }
+
+/** The code emailed after sign-up. Short enough to type from a phone. */
+export const VERIFY_CODE_LENGTH = 6
+export const VERIFY_CODE_MINUTES = 15
+export const VERIFY_MAX_ATTEMPTS = 5
+
+export function verifyCodeError(value: string): string | undefined {
+  const code = value.replace(/\s/g, '')
+  if (!code) return 'Enter the code from your email.'
+  if (!new RegExp(`^\\d{${VERIFY_CODE_LENGTH}}$`).test(code)) return `The code has ${VERIFY_CODE_LENGTH} digits.`
+}

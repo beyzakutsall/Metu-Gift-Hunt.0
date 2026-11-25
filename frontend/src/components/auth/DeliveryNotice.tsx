@@ -3,7 +3,7 @@ import type { DeliveryResult } from '../../types/auth'
 import { Alert } from '../common/Alert'
 
 // Development has no mail server, so say where the link really is.
-export function DeliveryNotice({ delivery, devLink }: Partial<DeliveryResult>) {
+export function DeliveryNotice({ delivery, devLink, devCode }: Partial<DeliveryResult>) {
   if (delivery === 'console') {
     return (
       <Alert tone="info">
@@ -15,6 +15,7 @@ export function DeliveryNotice({ delivery, devLink }: Partial<DeliveryResult>) {
     return (
       <Alert tone="info">
         <strong>Mock mode:</strong> no real email was sent.{' '}
+        {devCode && <>The code is <strong>{devCode}</strong>.</>}
         {devLink && (
           <Link to={devLink} className="text-link">
             Open the simulated link
