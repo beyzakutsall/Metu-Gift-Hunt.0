@@ -1,12 +1,12 @@
-# main'e her push'ta siteyi GitHub Pages'e yayınlar:
+# Sadece elle çalıştırılır (Actions → GitHub Pages → Run workflow). Lansmandan sonra herkese açık
+# bir sahte (mock) site gerçek uygulamayla karıştırılmasın diye her push'ta yayınlanmaz.
+# Siteyi GitHub Pages'e yayınlar:
 #   https://<kullanıcı>.github.io/<repo>/            uygulama (deneme modu: sunucu yok, giriş/kayıt sahte)
 #   https://<kullanıcı>.github.io/<repo>/3d-harita/deneme.html   3D harita
 # İlk kurulum: Settings → Pages → Build and deployment → Source: "GitHub Actions".
 name: GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

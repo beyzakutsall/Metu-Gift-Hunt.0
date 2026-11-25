@@ -1,5 +1,5 @@
 // harita.js'in eklentisi: uygulama (iframe'in dışı) yalnızca window.kampusHarita ile konuşur.
-// Adlar HARITA-MOTORU.md Bölüm 5.2'den; yer seçimiyle ilgili olanlar ek. Dışarısı hep enlem/boylam konuşur.
+// Adlar docs/HARITA-MOTORU.md Bölüm 5.2'den; yer seçimiyle ilgili olanlar ek. Dışarısı hep enlem/boylam konuşur.
 //
 //   hediyeleriGoster([{ id, enlem, boylam, alinabilir }])
 //   hediyeVurgula(id | null)

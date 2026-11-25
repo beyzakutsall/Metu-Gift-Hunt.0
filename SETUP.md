@@ -1,6 +1,6 @@
 # Setup
 
-The project brief is in [README.md](README.md). This file covers running the code.
+The project overview is in [README.md](README.md). This file covers running the code.
 
 ## Requirements
 
@@ -22,8 +22,8 @@ By default the API connects to local PostgreSQL as your OS user. For anything el
 
 Use `localhost:5173` rather than `127.0.0.1:5173`: the API checks the request origin.
 
-**Emails are not sent in development.** Password reset links are printed in the terminal running
-`npm run dev`. Set `SMTP_URL` and `MAIL_FROM` to send real email.
+**Emails are not sent in development.** Sign-up verification codes and password reset links are printed
+in the terminal running `npm run dev`. In mock mode the verification code is always `123456`. Set `SMTP_URL` and `MAIL_FROM` to send real email.
 
 ## Commands
 

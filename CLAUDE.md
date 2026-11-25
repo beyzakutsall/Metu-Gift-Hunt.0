@@ -66,7 +66,10 @@ backend/    Express 5 + PostgreSQL (pg) + sharp + nodemailer, tsx ile çalışı
 shared/     frontend ve backend'in ortak kuralları (doğrulama, oyun limitleri, yarıçaplar)
 3d-harita/  kampüs 3D haritası (vanilla JS, Türkçe isimler), uygulama iframe ile minecraft.html'i kullanır
             backend/src/campus.ts haritanın kendi verisini ve kuralını (yerlesim.js) kullanır
-.github/workflows/pages.yml  mock modunu GitHub Pages'e yayınlar (bkz. yol haritası, kapatılacak)
+            deneme.html: haritayı sahte GPS ile tek başına deneme sayfası (geliştirme aracı)
+docs/       tasarım belgeleri ve arşiv
+3d-coin-models/  item modeli adayları, koddan referans yok (bkz. Bölüm 5)
+.github/workflows/pages.yml  mock modunu GitHub Pages'e yayınlar, sadece elle çalıştırılır
 ```
 
 ### Komutlar
@@ -82,6 +85,18 @@ npm run build
 ```
 
 Bir değişikliği bitmiş saymadan önce `npm run typecheck` ve `npm test` çalıştır. Postgres yoksa bunu açıkça söyle.
+
+Claude Code bulut ortamında Postgres kurulu ama kapalı gelir. Testleri şöyle çalıştır (TCP parola ister, soket istemez):
+
+```bash
+service postgresql start
+su postgres -c "psql -c 'CREATE ROLE root SUPERUSER LOGIN'"   # sadece ilk seferde
+TEST_DATABASE_ADMIN_URL='postgresql://root@localhost/postgres?host=/var/run/postgresql' npm test
+```
+
+Testler yavaş (~2 dk, scrypt yüzünden). Testler çalışırken yeni migration dosyası ekleme, yarıda kalan test dosyaları yeni şemayı alıp bozulur.
+
+E-posta doğrulama: kayıt hesabı açar ama `requireUser` doğrulanmamış hesabı 403 `EMAIL_NOT_VERIFIED` ile durdurur. Sadece auth rotaları `requireSession` kullanır. Testlerde `createUser()` kayıt + doğrulama yapar, sadece kayıt için `register()` kullan. Mock modda kod `123456`.
 
 ---
 
@@ -109,16 +124,16 @@ Mevcut kod bu kurallara uyuyor, bozma:
 
 | # | Risk | Sorun | Yapılacak |
 |---|---|---|---|
-| S1 | Kritik | Kayıtta e-posta doğrulanmıyor: başkasının @metu.edu.tr adresi alınabilir, sınırsız yan hesap açılabilir (limitler ve "kendi hediyeni bulamazsın" kuralı delinir) | `users.email_verified_at`, 6 haneli kod / tek kullanımlık link (reset token altyapısını kullan), doğrulanmamış hesap hide/hunt uçlarını çağıramaz, IP başına kayıt limiti |
+| S1 ✅ | Kritik | (Yapıldı: 6 haneli kod, `006_email_verification.sql`.) Kayıtta e-posta doğrulanmıyor: başkasının @metu.edu.tr adresi alınabilir, sınırsız yan hesap açılabilir (limitler ve "kendi hediyeni bulamazsın" kuralı delinir) | `users.email_verified_at`, 6 haneli kod / tek kullanımlık link (reset token altyapısını kullan), doğrulanmamış hesap hide/hunt uçlarını çağıramaz, IP başına kayıt limiti |
 | S2 | Kritik | Konum tamamen istemci beyanı (`readFix`), DevTools/mock location ile sahtelenebilir | Kesin kanıt kamera eşlemesi. Ek olarak sunucuda makul olma kontrolleri: ardışık check-in'ler arası hız sınırı (> ~15 m/sn ret), varış ile çözüm arası asgari süre, şüpheli accuracy değerleri |
 | S3 | Yüksek | Bulma kanıtı şu an "binaya yakınlık + bilmece + herhangi bir fotoğraf" | Kamera eşlemesi (Bölüm 1), bilmece yedek yol olur |
 | S4 | Yüksek | Moderasyon yok: not/ipucu/bilmece serbest metin, kayıt görüntüleri ve bulma fotoğrafları başkasına gidiyor | `users.role`, `users.banned_at`, `reports` tablosu, "Şikâyet et" düğmesi, basit admin sayfası, metinde URL/telefon/e-posta reddi + küfür listesi, görüntüler yayından önce onay |
-| S5 | Orta | Giriş limiti sadece IP+e-posta çiftine bağlı, IP değiştirerek tek hesaba brute-force | E-posta başına ek limit (ör. 30/saat) |
+| S5 ✅ | Orta | (Yapıldı: e-posta başına 30/saat.) Giriş limiti sadece IP+e-posta çiftine bağlı, IP değiştirerek tek hesaba brute-force | E-posta başına ek limit (ör. 30/saat) |
 | S6 | Orta | Bellek içi rate limiter yeniden başlatmada sıfırlanır | Lansmanda tek süreç. Sonra Postgres/Redis |
 | S7 | Orta | Prod proxy ayarı yanlışsa `req.ip` herkes için aynı olur | Caddy/nginx arkasında `TRUST_PROXY=1` |
 | S8 | Düşük | Origin başlığı olmayan POST'lar origin kontrolünden geçiyor | Prod'da Origin'siz POST'u reddet |
 | S9 | Düşük | KVKK: hesap silme, aydınlatma metni, saklama süresi yok | Hesap silme ucu, görüntüler 30 gün sonra otomatik silinsin, `Terms.tsx` içine aydınlatma metni |
-| S10 | Düşük | GitHub Pages'teki mock site gerçek uygulamayla karıştırılabilir | Pages yayınını kapat veya `workflow_dispatch`'e çevir |
+| S10 ✅ | Düşük | GitHub Pages'teki mock site gerçek uygulamayla karıştırılabilir | (Yapıldı: workflow sadece elle çalışıyor.) |
 
 Repoda sızmış gizli anahtar bulunmadı. GitHub secret scanning açık tutulmalı.
 
@@ -127,10 +142,10 @@ Repoda sızmış gizli anahtar bulunmadı. GitHub secret scanning açık tutulma
 ## 5. Repo temizliği (yapılacak)
 
 - `3d-coin-models/` (162 MB, koddan referans yok, `(1)` kopyaları var, Ferrari modelleri marka/lisans riski): kullanılacak yılbaşı temalı modelleri sıkıştırıp (meshopt, model başına ≤ 1–2 MB) `backend/assets/collection/` altına taşı, `CREDITS.md`'yi güncelle, gerisini sil. Ferrari modellerini kullanma.
-- `veri/bina-adlari.json` ve `modeller/yilbasi-agaci.vox`: `3d-harita/` altındakilerin birebir kopyası, sil. Referanslarını (`SETUP.md`, `HARITA-MOTORU.md`) güncelle.
-- `3d-harita/deneme.html`: uygulama kullanmıyor, sil veya `3d-harita/dev/` altına al (Pages workflow'u da buna bakıyor).
-- İsim birliği: paket adı `campus-quest`, e-postalar "Campus Quest", ürün "METU Gift Hunt". Tek isme geç (kullanıcıya sor).
-- `README.md` eski bir başlangıç prompt'u gibi duruyor: ürün tanıtımı + kurulum linkiyle değiştir. Dokümanları `docs/` altında topla.
+- ✅ Kök `veri/` ve `modeller/` (birebir kopyalar) silindi.
+- `3d-harita/deneme.html` geliştirme aracı olarak kalıyor (sahte GPS ile harita denemesi).
+- ✅ İsim: her yerde "METU Gift Hunt", paketler `metu-gift-hunt`. Yerel veritabanı adı `campus_quest`, iç kilit anahtarları ve çerez adı (`cq_session`) mevcut kurulumlar bozulmasın diye bilerek eski.
+- ✅ README yeniden yazıldı, eski başlangıç istemi `docs/ilk-istem.md`, harita tasarımı `docs/HARITA-MOTORU.md`. `docs/HARITA-MOTORU.md` ilk tasarım belgesi, içindeki `veri/` ve `harita/` yolları güncel kod yapısını yansıtmıyor; güncel yapı için `3d-harita/README.md`.
 - Vercel yapılandırması repoda yok, eklemeye gerek yok.
 
 ---
@@ -152,15 +167,17 @@ Repoda sızmış gizli anahtar bulunmadı. GitHub secret scanning açık tutulma
 Durumu güncel tut: `[ ]` yapılmadı, `[x]` bitti.
 
 **Gün 1: Kimlik ve temizlik**
-- [ ] S1 e-posta doğrulama (migration, uçlar, `requireUser` kontrolü, testler)
-- [ ] Repo temizliği (Bölüm 5), Pages yayınını kapat
+- [x] S1 e-posta doğrulama (migration, uçlar, `requireUser` kontrolü, testler, `/verify-email` sayfası)
+- [x] İsim birliği (METU Gift Hunt), kopya klasörler, README/docs, Pages yayınını elle çalışır yap
+- [ ] `3d-coin-models/` model seçimi (kullanıcı karar verecek, Bölüm 5)
 - [ ] Prod sunucu, DB, SMTP, alan adı
 
 **Gün 2: Dijital item ve kamera eşleme MVP**
 - [ ] Saklama akışı: bina + kat + ipucu + 3 fotoğraf (sahne kalite kontrolüyle). Fiziksel not/hediye kavramını kaldır
 - [ ] `matcher/` Python + OpenCV servisi: özellik çıkarma, eşleme, RANSAC puanı
 - [ ] Bulma akışı: GPS kapısı (~30 m) → ipucu → canlı kamera → art arda kare eşleşmesi → item. Bilmece yedek yol
-- [ ] S2 makul olma kontrolleri, S5 e-posta başına giriş limiti
+- [ ] S2 makul olma kontrolleri
+- [x] S5 e-posta başına giriş limiti
 
 **Gün 3: Moderasyon ve KVKK**
 - [ ] S4 roller, ban, şikâyet, admin sayfası, metin filtreleri, görüntü onayı
