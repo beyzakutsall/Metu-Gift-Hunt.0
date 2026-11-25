@@ -1,0 +1,31 @@
+# Render Blueprint: Dashboard → New → Blueprint → bu repo. Ayrıntılar SETUP.md "Yayın (Render)".
+# Gizli değerler (sync: false) repoda durmaz, Blueprint ilk kez bağlanırken panelde sorulur.
+services:
+  - type: web
+    name: metu-gift-hunt
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    # --include=dev: NODE_ENV=production derlemede de geçerli, yoksa vite ve typescript kurulmaz.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start -w backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "1"
+      # Render PORT'u kendisi verir.
+      - key: APP_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false

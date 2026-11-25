@@ -23,7 +23,8 @@ By default the API connects to local PostgreSQL as your OS user. For anything el
 Use `localhost:5173` rather than `127.0.0.1:5173`: the API checks the request origin.
 
 **Emails are not sent in development.** Sign-up verification codes and password reset links are printed
-in the terminal running `npm run dev`. In mock mode the verification code is always `123456`. Set `SMTP_URL` and `MAIL_FROM` to send real email.
+in the terminal running `npm run dev`. In mock mode the verification code is always `123456`. Set `BREVO_API_KEY`
+(or `SMTP_URL`) and `MAIL_FROM` to send real email.
 
 ## Commands
 
@@ -61,7 +62,8 @@ backend/
   src/photo.ts             safe re-encoding of photo proof
   src/notification*.ts     notification list and live stream
   src/security.ts          password and token hashing
-  src/mailer.ts            SMTP, or terminal output in development
+  src/mailer.ts            Brevo HTTP API, SMTP, or terminal output in development
+  src/frontend.ts          production: serves frontend/dist on the API's origin, and the CSP
   test/                    API tests
 frontend/src/
   styles/globals.css       design tokens
@@ -81,8 +83,9 @@ To change the schema, add a new file such as `006_reports.sql`. Never edit a mig
 
 ## How authentication works
 
-1. Registering creates the account and logs in immediately. There is no email verification, by product decision.
-2. The address must end in `@metu.edu.tr`, but nothing proves the person owns it: anyone can type one.
+1. Registering creates the account and emails a 6-digit code. Until the code is entered, every game route answers
+   403 `EMAIL_NOT_VERIFIED`; only the auth routes work.
+2. The address must end in `@metu.edu.tr`, and the code proves the person can read that inbox.
 3. A session is a random token in an HttpOnly, SameSite cookie. The database stores only its hash. It lasts one
    day, or 30 days with "Remember me".
 4. Password reset links work once, for an hour, and log out every device.
@@ -207,12 +210,57 @@ All under `/api/auth`, JSON only.
 ## Before launch
 
 - Replace the placeholder Terms page and add a KVKK privacy notice.
-- Configure SMTP for password resets and test delivery to a real METU inbox.
-- Decide how to handle fake and duplicate accounts. Without verification one person can open many, get extra
-  searches, or find their own gifts.
+- Test email delivery to a real METU inbox, with DKIM set up for the sending domain.
 - Check the non-commercial model licences and the brand logos on the teapot and cars suit how the app is published.
-- Serve `frontend/dist` and proxy `/api` on one HTTPS origin, with `NODE_ENV=production` and `TRUST_PROXY` set.
 - Move rate limits and notification fan-out to a shared store if more than one API process runs.
 - Add a way to report or remove notes, clues, riddles and photos, because strangers see them.
 - Decide how long photo proofs are kept, and state it in the KVKK notice.
 - Have the university review `hediye-binalari.json`. Allow request bodies of 5 MB at the reverse proxy.
+
+## Deploying (Render, Neon, Brevo)
+
+Everything runs on free tiers. In production the API serves `frontend/dist` (which includes the map under
+`/3d-harita/`) itself, so the app, the map and `/api` share one origin: cookies and the origin check need that.
+
+**How production differs**
+
+- `NODE_ENV=production` refuses to start without `DATABASE_URL`, `APP_URL` (https), `MAIL_FROM` and either
+  `BREVO_API_KEY` or `SMTP_URL`, and without a built `frontend/dist`.
+- `HOST=0.0.0.0` makes the API reachable by Render's proxy. Render sets `PORT`.
+- Email goes through Brevo's HTTP API when `BREVO_API_KEY` is set, because Render's free plan blocks SMTP ports.
+- The Content Security Policy allows scripts only from this origin and `cdn.jsdelivr.net` (three.js for the map),
+  plus the map's inline import map by its hash, computed from `dist/3d-harita/minecraft.html` at startup.
+  Load a new CDN only after adding it in `backend/src/frontend.ts`.
+
+**One-time setup**
+
+1. **Neon:** create a project (region close to Frankfurt). Copy the connection string; it must end in
+   `?sslmode=require`. The tables are created on the first start.
+2. **Brevo:** create an API key (SMTP & API → API keys) and add the sender address under Senders. Mail from a
+   gmail address lands in spam; with your own domain, verify it and set up DKIM.
+3. **Render:** Dashboard → New → Blueprint, choose this repository. Render reads `render.yaml` and asks for the
+   secret values: `APP_URL` (`https://<service name>.onrender.com`), `DATABASE_URL`, `BREVO_API_KEY` and
+   `MAIL_FROM` (`METU Gift Hunt <address verified in Brevo>`).
+4. Open `https://<service name>.onrender.com/api/health`; it answers `{"status":"ok"}` once the database is reached.
+   Then register with a METU address and check that the code arrives.
+
+Every push to `main` deploys again. With a custom domain later, add it in Render and change `APP_URL` to it.
+
+**Free tier limits**
+
+- Render sleeps after 15 minutes without traffic; the next request takes about a minute.
+- Neon allows 100 compute hours a month and sleeps after 5 idle minutes. The health check reaches the database,
+  so Neon stays awake while Render does.
+- Brevo sends 300 emails a day: sign-up codes on launch day may run out.
+- Rate limits and live notifications are in memory: keep one instance.
+
+**Trying a production build locally**
+
+```sh
+npm run build
+NODE_ENV=production APP_URL=http://localhost:4000 MAIL_FROM="METU Gift Hunt <no-reply@example.com>" npm start -w backend
+```
+
+Open http://localhost:4000. Only for a `localhost` `APP_URL` may it be `http://` and may email be left unset; the
+codes are then printed in the terminal.
+
