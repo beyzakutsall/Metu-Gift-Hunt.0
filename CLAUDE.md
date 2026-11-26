@@ -197,6 +197,7 @@ Durumu güncel tut: `[ ]` yapılmadı, `[x]` bitti.
 - [x] S1 e-posta doğrulama (migration, uçlar, `requireUser` kontrolü, testler, `/verify-email` sayfası)
 - [x] İsim birliği (METU Gift Hunt), kopya klasörler, README/docs, Pages yayınını elle çalışır yap
 - [x] Ferrari modelleri ve `(1)` kopyaları silindi (`3d-coin-models/` kalanlar item adayı)
+- [x] Booklet'ten iki Ferrari item'i (17, 18) çıkarıldı: `008_retire_racers.sql`, booklet artık 16 item. Kamera işinin migration'ı 007 olarak kalabilir
 - [x] Ücretsiz yayın kod değişiklikleri (Bölüm 6a): `HOST`, `frontend.ts` ile aynı origin + CSP, Brevo, `render.yaml`, SETUP.md
 - [x] Render/Neon/Brevo hesap ve panel kurulumu: uygulama `metu-gift-hunt.onrender.com` adresinde yayında, kayıt + kod doğrulama prod'da çalıştı
 - [ ] Prod sunucu, DB, SMTP, alan adı

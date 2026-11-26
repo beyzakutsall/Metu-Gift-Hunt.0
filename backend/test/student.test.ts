@@ -23,13 +23,13 @@ test('the profile requires a session', async () => {
   assert.equal((await getProfile(cookie)).status, 401)
 })
 
-test('a new student has 18 locked items and no activity', async () => {
+test('a new student has 16 locked items and no activity', async () => {
   const { cookie } = await createUser()
   const { data, cache } = await getProfile(cookie)
   assert.equal(cache, 'no-store')
   assert.deepEqual(data.searches, { today: 0, limit: 2, total: 0 })
   assert.deepEqual(data.hides, { today: 0, limit: 3, total: 0 })
-  assert.equal(data.items.length, 18)
+  assert.equal(data.items.length, 16)
   assert.ok(data.items.every((item: any) => item.foundAt === null))
 })
 

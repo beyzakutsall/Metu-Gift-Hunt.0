@@ -46,7 +46,7 @@ test('every collectible has a valid model, a preview and a credit', async () => 
   const { cookie, data } = await createUser()
   await own(data.user.id)
   const { rows } = await pool.query('SELECT id, credit FROM collection_items WHERE active')
-  assert.equal(rows.length, 18)
+  assert.equal(rows.length, 16)
   const credits = await readFile(new URL('../assets/collection/CREDITS.md', import.meta.url), 'utf8')
 
   for (const { id, credit } of rows) {

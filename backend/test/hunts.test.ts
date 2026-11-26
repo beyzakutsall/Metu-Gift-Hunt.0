@@ -211,16 +211,17 @@ test('a retried or parallel solve rewards once', async () => {
 
 test('a find never repeats a collectible while any are locked', async () => {
   const { seeker, id } = await arrived()
-  await pool.query('INSERT INTO user_collection (user_id, item_id) SELECT $1, id FROM collection_items WHERE id <> 17', [seeker.data.user.id])
-  assert.equal((await solve(seeker.cookie, id)).data.item.id, 17)
+  await pool.query('INSERT INTO user_collection (user_id, item_id) SELECT $1, id FROM collection_items WHERE id <> 16', [seeker.data.user.id])
+  assert.equal((await solve(seeker.cookie, id)).data.item.id, 16)
 })
 
 test('gifts and finds never use a retired item', async () => {
   const { seeker, id } = await arrived()
-  assert.ok((await one('SELECT item_id FROM gifts')).item_id <= 18)
+  assert.ok((await one('SELECT item_id FROM gifts')).item_id <= 16)
   await pool.query('UPDATE gifts SET item_id = 24') // hidden before the models arrived
+  // (17 and 18, the retired Ferraris, behave the same way.)
   const { data } = await solve(seeker.cookie, id)
-  assert.ok(data.item.id >= 1 && data.item.id <= 18)
+  assert.ok(data.item.id >= 1 && data.item.id <= 16)
   assert.ok(data.item.credit.author)
   for (const file of ['model', 'preview']) {
     const response = await fetch(`${base}collection/${data.item.id}/${file}`, { headers: { cookie: seeker.cookie } })

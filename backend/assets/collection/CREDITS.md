@@ -4,10 +4,9 @@ These files are modified copies of the models in `3d-coin-models/`. "Optimized" 
 textures, meshopt compression, converted materials where needed, and a centred, resized pose.
 
 The app shows each credit when the collectible is viewed. Keep that: every licence requires attribution.
-Models 10-14 and 17 are **non-commercial only**. Model 17 is also share-alike, so the modified copy here is
-under CC BY-NC-SA 4.0 too.
+Models 10-14 are **non-commercial only**.
 
-Brand names, logos and liveries on models 15, 17 and 18 belong to their owners. The model licences don't grant
+Brand names, logos and liveries on model 15 belong to their owners. The model licences don't grant
 rights to them.
 
 | File | In the game | Original | Author | Licence | Changes |
@@ -28,5 +27,5 @@ rights to them.
 | 14 | Cocoa Mug | [Christmas Cookies Collection](https://sketchfab.com/3d-models/christmas-cookies-collection-e4a9dabca39144d2afedaf70cd3905e8) | Martini-SF | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) | optimized, separated from the set |
 | 15 | Festive Teapot | [Spode - Christmas Teapot](https://sketchfab.com/3d-models/spode-christmas-teapot-a876ea5433f6471a9ad30aa20e510c85) | myndman | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | optimized |
 | 16 | Candy Hammer | [LOW POLY Christmas Hammer](https://sketchfab.com/3d-models/low-poly-christmas-hammer-3707a4e0be2b453e81c299eb0d60041b) | PatelDev | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | optimized |
-| 17 | Midnight Racer | [2015 Ferrari FXX K](https://sketchfab.com/3d-models/2015-ferrari-fxx-k-8508899a06754aee90286c9bceabe63c) | Ddiaz Design | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) | optimized, shine increased |
-| 18 | Scarlet Racer | [Ferrari F1 2019](https://sketchfab.com/3d-models/ferrari-f1-2019-1b050bffe4e749b586b4782ee7ff4fd0) | valvetin | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | optimized |
+
+Models 17 and 18 (two Ferrari cars) were retired: the brand isn't ours to use. Their ids stay retired in the database.

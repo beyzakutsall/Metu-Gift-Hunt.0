@@ -4,7 +4,7 @@ import type { Plugin } from 'vite'
 
 const ROOT = fileURLToPath(new URL('../backend/assets/collection/', import.meta.url))
 // The sample finds in src/services/mockCollection.ts. The real app gets every model from the API.
-const FILES = [1, 5, 6, 7, 12, 17].flatMap((id) => [`${id}.glb`, `${id}.webp`])
+const FILES = [1, 5, 6, 7, 12].flatMap((id) => [`${id}.glb`, `${id}.webp`])
 const BASE = 'mock-collection/'
 
 /** Mock mode has no API, so its sample models are plain files. */

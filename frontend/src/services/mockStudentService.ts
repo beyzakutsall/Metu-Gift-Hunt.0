@@ -5,7 +5,7 @@ import { mockState } from './mockGameState'
 import { MOCK_ITEMS, MOCK_REWARD_ID } from './mockCollection'
 
 // UI development only. The demo account is part-way through; new mock accounts start empty.
-const SIZES: [ChapterId, number][] = [['creatures', 5], ['nature', 4], ['student-life', 6], ['adventure', 3]]
+const SIZES: [ChapterId, number][] = [['creatures', 5], ['nature', 4], ['student-life', 6], ['adventure', 1]]
 const SLOTS = SIZES.flatMap(([chapter, size]) => Array<ChapterId>(size).fill(chapter))
 const DAY = 86_400_000
 const UTC_OFFSET = 3 * 3_600_000 // Turkey has no daylight saving time

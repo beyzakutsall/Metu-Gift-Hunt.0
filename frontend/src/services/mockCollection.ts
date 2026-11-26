@@ -67,19 +67,6 @@ export const MOCK_ITEMS: FoundItem[] = [
       changes: 'optimized, separated from the set',
     },
   },
-  {
-    id: 17,
-    chapter: 'adventure',
-    name: 'Midnight Racer',
-    credit: {
-      title: '2015 Ferrari FXX K',
-      author: 'Ddiaz Design',
-      source: 'https://sketchfab.com/3d-models/2015-ferrari-fxx-k-8508899a06754aee90286c9bceabe63c',
-      license: 'CC BY-NC-SA 4.0',
-      licenseUrl: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
-      changes: 'optimized, shine increased',
-    },
-  },
 ]
 
 export const MOCK_REWARD_ID = 7
