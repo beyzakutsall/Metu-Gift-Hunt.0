@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { base, createUser, pool } from './helpers.js'
+import { base, createUser, later, pool } from './helpers.js'
+import { hiderPhotos, plainPhoto } from './images.js'
 
 const PUZZLE = { clue: 'On the third floor', riddle: 'Which hall hosts the event?', answer: 'Cahit Arf' }
 const SPOT = { latitude: 39.893962, longitude: 32.784009 } // grass near the Cafeteria
@@ -16,8 +17,16 @@ async function call(path: string, cookie = '', body?: object) {
   return { status: response.status, data: (await response.json().catch(() => null)) as any }
 }
 
-const hide = (cookie: string, overrides: object = {}) =>
-  call('gifts', cookie, { requestId: randomUUID(), ...SPOT, ...PUZZLE, note: 'Look under the bench', ...overrides })
+const PHOTOS = (await hiderPhotos(1)).map((photo) => photo.toString('base64'))
+const PLAIN = (await plainPhoto()).toString('base64')
+
+/** The hider stands where they hide it, with their three photos of the spot. */
+function hide(cookie: string, overrides: Record<string, unknown> = {}) {
+  const place = { ...SPOT, ...overrides }
+  const location = { latitude: place.latitude, longitude: place.longitude, accuracy: 10 }
+  const body = { requestId: randomUUID(), ...SPOT, ...PUZZLE, note: 'Look under the bench', floor: 'Ground floor', location, photos: PHOTOS }
+  return call('gifts', cookie, { ...body, ...overrides })
+}
 
 const student = (name: string) => createUser({ username: name, email: `${name}@metu.edu.tr` })
 
@@ -71,7 +80,7 @@ test('the sticker inside stays secret from the hider', async () => {
   const { cookie } = await student('hider')
   const { data } = await hide(cookie)
   const fields = [
-    'answers', 'clue', 'createdAt', 'foundAt', 'id', 'latitude', 'locationName', 'longitude', 'note', 'photoUrl', 'riddle',
+    'answers', 'clue', 'createdAt', 'floor', 'foundAt', 'id', 'latitude', 'locationName', 'longitude', 'note', 'photoUrl', 'riddle',
   ]
   assert.deepEqual(Object.keys(data.gift).sort(), fields)
   assert.deepEqual(Object.keys((await call('gifts/mine', cookie)).data.gifts[0]).sort(), fields)
@@ -118,6 +127,8 @@ test('malformed input is refused without using up a slot', async () => {
   const cases = [
     { note: '' }, { clue: '' }, { riddle: '?' }, { answer: ';' }, { answer: 'a;b;c;d;e;f' }, { note: ' \n ' }, { note: '\u0000' }, { note: 'x'.repeat(201) }, { note: ['x'] },
     { latitude: '39.89' }, { longitude: null }, { requestId: 'nope' },
+    { floor: '' }, { floor: 'x'.repeat(41) }, { location: undefined }, { location: { latitude: 39.89 } },
+    { photos: undefined }, { photos: PHOTOS.slice(0, 2) }, { photos: [...PHOTOS, PHOTOS[0]] }, { photos: ['bm90IGFuIGltYWdl', ...PHOTOS.slice(1)] },
   ]
   for (const override of cases) assert.equal((await hide(cookie, override)).status, 400, JSON.stringify(override))
   assert.equal(await count('gift_actions'), 0)
@@ -215,4 +226,41 @@ test('connected students are notified live', { timeout: 10_000 }, async () => {
   assert.equal((await mine.next()).event.mine, true)
   mine.close()
   theirs.close()
+})
+
+test('the hider must be at the building, with a believable reading', async () => {
+  const { cookie } = await student('hider')
+  const away = { latitude: SPOT.latitude + 0.003, longitude: SPOT.longitude, accuracy: 10 }
+  assert.equal((await hide(cookie, { location: away })).data.error.code, 'TOO_FAR')
+  assert.equal((await hide(cookie, { location: { ...SPOT, accuracy: 300 } })).data.error.code, 'WEAK_GPS')
+  assert.equal((await hide(cookie, { location: { ...SPOT, accuracy: 0 } })).data.error.code, 'SUSPICIOUS_GPS')
+  assert.equal(await count('gift_actions'), 0)
+})
+
+test('a hider can only move as fast as a person', async () => {
+  const { cookie } = await student('hider')
+  const cafeteria = { latitude: SPOT.latitude, longitude: SPOT.longitude, accuracy: 10 }
+  const math = { latitude: 39.895664, longitude: 32.782291 }
+  assert.equal((await hide(cookie, { location: cafeteria })).status, 201)
+  assert.equal((await hide(cookie, { ...math, location: { ...math, accuracy: 10 } })).data.error.code, 'TOO_FAST')
+  later(5 * 60)
+  assert.equal((await hide(cookie, { ...math, location: { ...math, accuracy: 10 } })).status, 201)
+})
+
+test('a spot photo without enough detail is refused, naming which one', async () => {
+  const { cookie } = await student('hider')
+  const { status, data } = await hide(cookie, { photos: [PHOTOS[0], PLAIN, PHOTOS[2]] })
+  assert.equal(status, 400)
+  assert.equal(data.error.field, 'photos')
+  assert.match(data.error.message, /Photo 2/)
+  assert.equal(await count('gift_actions'), 0)
+})
+
+test('the spot photos are stored for matching, with the floor', async () => {
+  const { cookie } = await student('hider')
+  const { data } = await hide(cookie, { floor: ' 3rd floor ' })
+  assert.equal(data.gift.floor, '3rd floor')
+  const { rows } = await pool.query('SELECT idx, length(features) AS size, jpeg IS NOT NULL AS photo FROM gift_scenes ORDER BY idx')
+  assert.deepEqual(rows.map((row) => row.idx), [0, 1, 2])
+  assert.ok(rows.every((row) => row.size > 1000 && row.photo))
 })

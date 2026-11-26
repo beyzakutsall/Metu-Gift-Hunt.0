@@ -20,6 +20,11 @@ export let base: string
 export let outbox: Mail[]
 export let auth: ReturnType<typeof createApp>['auth']
 
+// The app's clock for location checks. Moving it forward stands in for walking time.
+let offset = 0
+/** Lets this many seconds pass for the app's location checks. */
+export const later = (seconds: number) => void (offset += seconds * 1000)
+
 before(async () => {
   admin = new pg.Client({ connectionString: adminUrl })
   await admin.connect()
@@ -35,6 +40,7 @@ beforeEach(async () => {
   server?.close()
   await pool.query('TRUNCATE users, email_verifications, sessions, password_resets CASCADE')
   outbox = []
+  offset = 0
   // A fresh app per test also means fresh rate limits.
   let app
   ;({ app, auth } = createApp({
@@ -43,6 +49,7 @@ beforeEach(async () => {
     secureCookies: false,
     trustProxy: 0,
     mailer: { delivery: 'console', send: async (mail) => void outbox.push(mail) },
+    now: () => Date.now() + offset,
   }))
   await new Promise<void>((resolve) => (server = app.listen(0, '127.0.0.1', () => resolve())))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/`

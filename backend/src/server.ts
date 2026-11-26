@@ -12,7 +12,7 @@ try {
 }
 
 const mailer = createMailer()
-const { app, auth } = createApp({
+const { app, auth, gifts } = createApp({
   pool,
   mailer,
   appUrl: config.appUrl,
@@ -21,7 +21,8 @@ const { app, auth } = createApp({
   frontendDir: config.frontendDir,
 })
 
-const cleanUp = () => auth.deleteExpired().catch((error) => console.error('Cleanup failed:', error.message))
+const cleanUp = () =>
+  Promise.all([auth.deleteExpired(), gifts.purgeScenePhotos()]).catch((error) => console.error('Cleanup failed:', error.message))
 await cleanUp()
 setInterval(cleanUp, 60 * 60_000).unref()
 

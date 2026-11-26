@@ -34,7 +34,7 @@ export interface Fix {
 
 export function readFix(body: any): Fix {
   const point = readPoint(body, 'location')
-  const { accuracy } = body
+  const { accuracy } = body ?? {}
   if (!Number.isFinite(accuracy) || accuracy < 0) throw invalid('Your location reading is incomplete.', 'location')
   return { ...point, accuracy }
 }

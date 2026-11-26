@@ -67,3 +67,11 @@ export function guessError(value: string): string | undefined {
   if (!guess) return 'Type your answer to the riddle.'
   if (guess.length > ANSWER_MAX) return `Keep the answer under ${ANSWER_MAX} characters.`
 }
+
+export const FLOOR_MAX = 40
+
+export function floorError(value: string): string | undefined {
+  const floor = cleanText(value)
+  if (!floor) return 'Say which floor, like “Ground floor” or “3rd floor”.'
+  if (floor.length > FLOOR_MAX) return `Keep the floor under ${FLOOR_MAX} characters.`
+}

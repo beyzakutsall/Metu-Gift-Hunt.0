@@ -10,6 +10,8 @@ import { helmetOptions, serveFrontend } from './frontend.js'
 import { createGiftRoutes } from './giftRoutes.js'
 import { createGiftService } from './giftService.js'
 import type { Mailer } from './mailer.js'
+import { createMatchQueue } from './matcher/queue.js'
+import { createPlausibility } from './plausibility.js'
 import { createHuntRoutes } from './huntRoutes.js'
 import { createHuntService } from './huntService.js'
 import { createNotificationHub } from './notificationHub.js'
@@ -29,9 +31,11 @@ interface Options {
   trustProxy: number
   /** Built frontend to serve on the same origin, in production. */
   frontendDir?: string
+  /** Tests move time forward without waiting. */
+  now?: () => number
 }
 
-export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy, frontendDir }: Options) {
+export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy, frontendDir, now }: Options) {
   const app = express()
   const limiter = createRateLimiter()
   const auth = createAuthService(pool, mailer, limiter, appUrl)
@@ -39,6 +43,9 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy, fro
   const cookie = createSessionCookie(secureCookies)
   const requireUser = createRequireUser(auth, cookie)
   const hub = createNotificationHub()
+  const queue = createMatchQueue()
+  const plausibility = createPlausibility(now)
+  const gifts = createGiftService(pool, hub)
 
   app.set('trust proxy', trustProxy)
   app.use(helmet(helmetOptions(frontendDir, appUrl)))
@@ -54,8 +61,9 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy, fro
     }
     next()
   })
-  // Before the global parser: one hunt route takes a photo, and sets its own limit.
-  app.use('/api/hunts', createHuntRoutes(requireUser, createHuntService(pool), limiter))
+  // Before the global parser: these take photos, and set their own limits after checking the session.
+  app.use('/api/hunts', createHuntRoutes(requireUser, createHuntService(pool, queue, plausibility), limiter))
+  app.use('/api/gifts', createGiftRoutes({ requireUser, gifts, limiter, queue, plausibility }))
   app.use(express.json({ limit: '10kb' }))
 
   app.get('/api/health', async (_req, res) => {
@@ -65,7 +73,6 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy, fro
   app.use('/api/auth', createAuthRoutes(auth, limiter, cookie, createRequireSession(auth, cookie)))
   app.use('/api/student', createStudentRoutes(requireUser, createStudentService(pool)))
   app.use('/api/collection', createCollectionRoutes(requireUser, createCollectionService(pool)))
-  app.use('/api/gifts', createGiftRoutes(requireUser, createGiftService(pool, hub), limiter))
   app.use('/api/notifications', createNotificationRoutes(requireUser, createNotificationService(pool), hub))
   app.use('/api', () => {
     throw new AppError(404, 'NOT_FOUND', 'Not found.')
@@ -90,5 +97,5 @@ export function createApp({ pool, mailer, appUrl, secureCookies, trustProxy, fro
   }
   app.use(handleError)
 
-  return { app, auth }
+  return { app, auth, gifts }
 }

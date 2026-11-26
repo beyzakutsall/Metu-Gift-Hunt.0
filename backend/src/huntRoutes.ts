@@ -1,6 +1,6 @@
 import express, { Router } from 'express'
 import { guessError } from '../../shared/giftRules.js'
-import { PHOTO_MAX_BYTES } from '../../shared/huntRules.js'
+import { FRAME_MAX_BYTES } from '../../shared/huntRules.js'
 import type { HuntService } from './huntService.js'
 import { readFix, readId, readText } from './input.js'
 import type { RateLimiter } from './rateLimit.js'
@@ -9,8 +9,8 @@ import type { RequireUser } from './requireUser.js'
 export function createHuntRoutes(requireUser: RequireUser, hunts: HuntService, limiter: RateLimiter) {
   const router = Router()
   const smallBody = express.json({ limit: '10kb' })
-  // Base64 is a third larger than the photo it carries.
-  const photoBody = express.json({ limit: Math.ceil((PHOTO_MAX_BYTES * 4) / 3) + 10_000 })
+  // Base64 is a third larger than the frame it carries.
+  const frameBody = express.json({ limit: Math.ceil((FRAME_MAX_BYTES * 4) / 3) + 10_000 })
 
   // Mounted before the app's body parser: log in first, and only then may a large body be read.
   router.use(async (req, res, next) => {
@@ -35,18 +35,25 @@ export function createHuntRoutes(requireUser: RequireUser, hunts: HuntService, l
   })
 
   router.post(
-    '/:id/solve',
+    '/:id/frame',
     (_req, res, next) => {
-      limiter.hit(`solve:${res.locals.user.id}`, 20, 10)
+      // About one frame a second and a half, with room for retries.
+      limiter.hit(`frame:${res.locals.user.id}`, 600, 10)
       next()
     },
-    photoBody,
+    frameBody,
     async (req, res) => {
       const id = readId(req.params.id)
-      const answer = readText(req.body, 'answer', guessError)
-      res.json(await hunts.solve(res.locals.user.id, id, { fix: readFix(req.body), answer, photo: req.body?.photo }))
+      res.json(await hunts.frame(res.locals.user.id, id, { fix: readFix(req.body), frame: req.body?.frame }))
     },
   )
+
+  router.post('/:id/solve', smallBody, async (req, res) => {
+    limiter.hit(`solve:${res.locals.user.id}`, 20, 10)
+    const id = readId(req.params.id)
+    const answer = readText(req.body, 'answer', guessError)
+    res.json(await hunts.solve(res.locals.user.id, id, { fix: readFix(req.body), answer }))
+  })
 
   router.post('/:id/give-up', smallBody, async (req, res) => {
     await hunts.giveUp(res.locals.user.id, readId(req.params.id))

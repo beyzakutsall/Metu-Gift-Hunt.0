@@ -17,12 +17,15 @@ interface HideInput extends Puzzle {
   latitude: number
   longitude: number
   note: string
+  floor: string
+  /** The hider's photos of the spot, already checked. */
+  scene: { jpeg: Buffer; features: Buffer }[]
 }
 
 // For the hider only. Deliberately without item_id: not even they learn which collectible is inside.
 const VIEW = `
   SELECT g.id, g.latitude, g.longitude, g.note, g.created_at AS "createdAt",
-         g.location_name AS "locationName", g.clue, g.riddle, g.answers, g.found_at AS "foundAt",
+         g.location_name AS "locationName", g.floor, g.clue, g.riddle, g.answers, g.found_at AS "foundAt",
          CASE WHEN p.hunt_id IS NOT NULL THEN '/api/hunts/' || p.hunt_id || '/photo' END AS "photoUrl"
   FROM gifts g
   LEFT JOIN hunts h ON h.gift_id = g.id AND h.status = 'found'
@@ -57,13 +60,16 @@ export function createGiftService(pool: pg.Pool, hub: NotificationHub) {
         await db.query("INSERT INTO gift_actions (user_id, kind, slot) VALUES ($1, 'hide', $2)", [userId, count + 1])
         const created = await db.query<{ id: string }>(
           `INSERT INTO gifts (hider_id, request_id, item_id, latitude, longitude, note,
-                              location_key, location_name, clue, riddle, answers)
-           VALUES ($1, $2, (SELECT id FROM collection_items WHERE active ORDER BY random() LIMIT 1), $3, $4, $5, $6, $7, $8, $9, $10)
+                              location_key, location_name, clue, riddle, answers, floor)
+           VALUES ($1, $2, (SELECT id FROM collection_items WHERE active ORDER BY random() LIMIT 1), $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING id`,
           [userId, input.requestId, input.latitude, input.longitude, input.note,
-           input.locationKey, input.locationName, input.clue, input.riddle, input.answers],
+           input.locationKey, input.locationName, input.clue, input.riddle, input.answers, input.floor],
         )
         const id = created.rows[0]!.id
+        for (const [idx, { jpeg, features }] of input.scene.entries()) {
+          await db.query('INSERT INTO gift_scenes (gift_id, idx, features, jpeg) VALUES ($1, $2, $3, $4)', [id, idx, features, jpeg])
+        }
         const event = await db.query<{ id: number; createdAt: Date }>(
           'INSERT INTO notifications (gift_id) VALUES ($1) RETURNING id, created_at AS "createdAt"',
           [id],
@@ -87,6 +93,11 @@ export function createGiftService(pool: pg.Pool, hub: NotificationHub) {
       )
       if (!rows[0]) throw new AppError(404, 'NOT_FOUND', 'Gift not found.')
       return rows[0]
+    },
+
+    /** Spot photos are for moderation only. After 30 days the features are all that's left. */
+    async purgeScenePhotos() {
+      await pool.query("UPDATE gift_scenes SET jpeg = NULL WHERE jpeg IS NOT NULL AND created_at < now() - interval '30 days'")
     },
 
     /** For gifts from before searching existed. Only once, so a riddle can't change during a hunt. */
