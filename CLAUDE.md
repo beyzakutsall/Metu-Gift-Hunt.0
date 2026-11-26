@@ -48,7 +48,7 @@ ODTÜ öğrencileri için Pokémon GO benzeri, **yılbaşı temalı dijital kole
 - En büyük risk: **farklı katlardaki birbirinin aynı kapılar.** Ayırt edici ayrıntı zorunluluğu + aynı binada benzer kayıt varsa daha yüksek eşik.
 - **Güvenlik kuralı:** saklayanın kareleri/videosu **asla** arayana gönderilmez (ekrandaki kareye kamera tutarak hile yapılır). Arayana sadece metin ipucu ve bilmece gider.
 - Gizlilik: kayıtlar yayına girmeden moderasyondan geçer, kadrajda insan olmamalı, ham kareler özellikler çıkarıldıktan sonra silinir.
-- Mimari: mevcut Node API'nin yanında küçük bir **Python + OpenCV servisi** (`matcher/`). Node, kareleri `photo.ts` ile doğrulayıp/yeniden kodlayıp iç ağdan bu servise gönderir. Servis dışarıya açılmaz.
+- Mimari (güncellendi): ayrı Python servisi **yok**. Ücretsiz Render'da iç ağ servisi olmadığı için eşleme Node API'nin içinde OpenCV WebAssembly ile yapılır (`backend/src/matcher/`). Ayrıntılı görev: `docs/gorevler/gun2-kamera.md`.
 - Eşikler sahada kalibre edilir (aynı binanın iki katında aynı tip kapılarla test). Kalibre edilmemiş eşikle lansman yapma.
 
 ---
@@ -202,6 +202,8 @@ Durumu güncel tut: `[ ]` yapılmadı, `[x]` bitti.
 - [ ] Prod sunucu, DB, SMTP, alan adı
 
 **Gün 2: Dijital item ve kamera eşleme MVP**
+
+Görev tanımı: `docs/gorevler/gun2-kamera.md` (kod önce yazılır, sonra proje sahibi fotoğraflarla dener).
 - [ ] Saklama akışı: bina + kat + ipucu + 3 fotoğraf (sahne kalite kontrolüyle). Fiziksel not/hediye kavramını kaldır
 - [ ] `matcher/` Python + OpenCV servisi: özellik çıkarma, eşleme, RANSAC puanı
 - [ ] Bulma akışı: GPS kapısı (~30 m) → ipucu → canlı kamera → art arda kare eşleşmesi → item. Bilmece yedek yol
