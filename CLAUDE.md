@@ -170,6 +170,11 @@ Bu plan için gereken kod değişiklikleri:
 
 Yerelde prod denemesi: `APP_URL` `localhost` ise `http://` ve e-postasız (konsola yazan) çalışmaya izin verilir, başka her adreste https ve e-posta zorunlu. CSP `backend/src/frontend.ts` içinde: yeni bir CDN eklenirse oraya da eklenmeli.
 
+Kurulumda yaşanan tuzaklar (sorun çıkarsa önce bunlara bak):
+- `DATABASE_URL` tam olarak `postgresql://` ile başlamalı (Neon'da "Connection string" seç, psql komutu değil, tırnaksız). Geçersiz değerde pg sunucu adı olarak `base` kullanır: logda `getaddrinfo ENOTFOUND base`.
+- `MAIL_FROM` adresi Brevo'da doğrulanan göndericiyle **harfi harfine** aynı olmalı: `METU Gift Hunt <metu.gift.hunt@gmail.com>` (noktalı). Gmail noktaları yok sayar ama Brevo saymaz, farklıysa Brevo "sender is not valid" diye reddeder.
+- E-posta hatası kullanıcıya gösterilmez (bilerek). Kod gelmezse Brevo → Transactional → Logs ve Render logundaki `Email delivery failed` satırına bak.
+
 Hesap açma (Render, Neon, Brevo, Student Pack) proje sahibinin işi. Claude Code gizli anahtarları asla repoya yazmaz, sadece hangi değişkenin nereye girileceğini söyler.
 
 ## 6. Lansman gereksinimleri (ODTÜ geneli)
@@ -193,7 +198,7 @@ Durumu güncel tut: `[ ]` yapılmadı, `[x]` bitti.
 - [x] İsim birliği (METU Gift Hunt), kopya klasörler, README/docs, Pages yayınını elle çalışır yap
 - [x] Ferrari modelleri ve `(1)` kopyaları silindi (`3d-coin-models/` kalanlar item adayı)
 - [x] Ücretsiz yayın kod değişiklikleri (Bölüm 6a): `HOST`, `frontend.ts` ile aynı origin + CSP, Brevo, `render.yaml`, SETUP.md
-- [ ] Render/Neon/Brevo hesap ve panel kurulumu (proje sahibi)
+- [x] Render/Neon/Brevo hesap ve panel kurulumu: uygulama `metu-gift-hunt.onrender.com` adresinde yayında, kayıt + kod doğrulama prod'da çalıştı
 - [ ] Prod sunucu, DB, SMTP, alan adı
 
 **Gün 2: Dijital item ve kamera eşleme MVP**
