@@ -14,19 +14,21 @@ export const validatePuzzle = (value: PuzzleInput): PuzzleErrors => ({
 
 interface Props {
   prefix?: string // keeps ids unique when two forms are on the page
+  /** Number of the first field in the form's steps. */
+  step?: number
   value: PuzzleInput
   errors: PuzzleErrors
   readOnly: boolean
   onChange: (field: keyof PuzzleInput, value: string) => void
 }
 
-export function PuzzleFields({ prefix = '', value, errors, readOnly, onChange }: Props) {
+export function PuzzleFields({ prefix = '', step = 2, value, errors, readOnly, onChange }: Props) {
   return (
     <>
       <TextArea
         id={`${prefix}clue`}
-        label="2. Clue, shown when they arrive"
-        placeholder="It’s on the third floor"
+        label={`${step}. Clue, shown when they arrive`}
+        placeholder="Next to the noticeboard, by the blue door"
         maxLength={CLUE_MAX}
         value={value.clue}
         error={errors.clue}
@@ -36,7 +38,7 @@ export function PuzzleFields({ prefix = '', value, errors, readOnly, onChange }:
       />
       <TextArea
         id={`${prefix}riddle`}
-        label="3. Riddle to solve there"
+        label={`${step + 1}. Riddle, if the camera can’t recognise the spot`}
         placeholder="In which hall is the event held?"
         maxLength={RIDDLE_MAX}
         value={value.riddle}
@@ -47,7 +49,7 @@ export function PuzzleFields({ prefix = '', value, errors, readOnly, onChange }:
       />
       <Input
         id={`${prefix}answer`}
-        label="4. Correct answer"
+        label={`${step + 2}. Correct answer`}
         placeholder="Cahit Arf"
         hint="Capitals and Turkish letters don’t matter. Add other accepted answers with ;"
         maxLength={400}

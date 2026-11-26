@@ -51,6 +51,12 @@ export function MyGiftsList({ gifts, selectedId, onSelect, onChanged }: Props) {
                   (gift.riddle ? (
                     <div className="space-y-2 px-3 py-2 text-caption">
                       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 [&_dd]:min-w-0 [&_dd]:break-words [&_dt]:font-bold">
+                        {gift.floor && (
+                          <>
+                            <dt>Floor</dt>
+                            <dd>{gift.floor}</dd>
+                          </>
+                        )}
                         <dt>Clue</dt>
                         <dd>{gift.clue}</dd>
                         <dt>Riddle</dt>

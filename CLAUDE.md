@@ -96,6 +96,12 @@ TEST_DATABASE_ADMIN_URL='postgresql://root@localhost/postgres?host=/var/run/post
 
 Testler yavaş (~2 dk, scrypt yüzünden). Testler çalışırken yeni migration dosyası ekleme, yarıda kalan test dosyaları yeni şemayı alıp bozulur.
 
+Kamera eşleme notları:
+- Eşleme sayıları sadece `shared/huntRules.ts` içinde (`MATCH_MIN_INLIERS`, `MATCH_STREAK`, `SCENE_MIN_KEYPOINTS`, `FALLBACK_MIN_FRAMES`, `MIN_FIND_SECONDS`...).
+- OpenCV modülü bir "thenable": asla `await cv` yapma, `const { cv } = await openCv()` kullan (yoksa sonsuza kadar bekler). Her `cv.Mat` vb. `delete()` edilmeli.
+- Testlerde görüntüler `backend/test/images.ts` ile üretilir (aynı seed = aynı yer). Konum kontrolleri için zaman `later(saniye)` ile ilerletilir.
+- Saklayanın fotoğrafları (`gift_scenes`) hiçbir yanıtta arayana gitmez, kare yanıtında skor yoktur. Bunu koru.
+
 E-posta doğrulama: kayıt hesabı açar ama `requireUser` doğrulanmamış hesabı 403 `EMAIL_NOT_VERIFIED` ile durdurur. Sadece auth rotaları `requireSession` kullanır. Testlerde `createUser()` kayıt + doğrulama yapar, sadece kayıt için `register()` kullan. Mock modda kod `123456`.
 
 ---
@@ -205,10 +211,12 @@ Durumu güncel tut: `[ ]` yapılmadı, `[x]` bitti.
 **Gün 2: Dijital item ve kamera eşleme MVP**
 
 Görev tanımı: `docs/gorevler/gun2-kamera.md` (kod önce yazılır, sonra proje sahibi fotoğraflarla dener).
-- [ ] Saklama akışı: bina + kat + ipucu + 3 fotoğraf (sahne kalite kontrolüyle). Fiziksel not/hediye kavramını kaldır
-- [ ] `matcher/` Python + OpenCV servisi: özellik çıkarma, eşleme, RANSAC puanı
-- [ ] Bulma akışı: GPS kapısı (~30 m) → ipucu → canlı kamera → art arda kare eşleşmesi → item. Bilmece yedek yol
-- [ ] S2 makul olma kontrolleri
+- [x] Saklama akışı: bina + kat + ipucu + 3 fotoğraf (sahne kalite kontrolüyle), saklayan binada olmalı
+- [x] Eşleme modülü `backend/src/matcher/` (OpenCV WASM): ORB + oran testi + RANSAC, skor = inlier sayısı
+- [x] Bulma akışı: GPS kapısı → kat + ipucu → canlı kamera (`POST /api/hunts/:id/frame`) → art arda `MATCH_STREAK` kare → item. Bilmece `FALLBACK_MIN_FRAMES` kareden sonra yedek yol
+- [x] S2 makul olma kontrolleri (`plausibility.ts`): hız > 15 m/sn, doğruluk < 1 m, varıştan sonra < 20 sn reddedilir
+- [ ] **Sahada kalibrasyon:** proje sahibi kendi fotoğraflarıyla `npm run match:test -w backend -- <saklayan> <ayni-yer> <baska-yer>` çalıştırır, `MATCH_MIN_INLIERS` buna göre ayarlanır
+- [ ] Render free CPU'su (0,1) ile eşleme hızını yayında ölç: yavaşsa `ORB_POINTS` (matcher/index.ts) ya da `MATCH_EDGE` düşürülür
 - [x] S5 e-posta başına giriş limiti
 
 **Gün 3: Moderasyon ve KVKK**

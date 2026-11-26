@@ -101,6 +101,7 @@ export function SearchPage() {
           result={result}
           error={checkInError}
           onChanged={() => void refreshHunt()}
+          onFrames={(framesTried) => hunt.framesTried !== framesTried && update({ ...hunt, framesTried })}
           onEnded={endHunt}
           onSolved={(next) => {
             setEndedMessage('')

@@ -4,13 +4,13 @@ import { PHOTO_MAX_EDGE } from '../../../shared/huntRules'
  * Shrinks on the phone: quick on weak indoor signal, turns iPhone HEIC into JPEG where the browser
  * can read it, and drops EXIF before anything leaves the device.
  */
-export async function preparePhoto(file: File) {
+export async function preparePhoto(file: File, maxEdge = PHOTO_MAX_EDGE) {
   const url = URL.createObjectURL(file)
   try {
     const image = new Image()
     image.src = url
     await image.decode()
-    const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight))
+    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight))
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
     canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))

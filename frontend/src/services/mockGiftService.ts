@@ -20,7 +20,7 @@ export function createMockGiftService(): GiftService {
 
     listMine: async () => [...(mockState.gifts.get(await currentUserId()) ?? [])],
 
-    async hide({ requestId, latitude, longitude, note, clue, riddle, answer }) {
+    async hide({ requestId, latitude, longitude, note, floor, clue, riddle, answer }) {
       const userId = await currentUserId()
       await new Promise((resolve) => setTimeout(resolve, 500))
       const gifts = mockState.gifts.get(userId) ?? []
@@ -31,6 +31,7 @@ export function createMockGiftService(): GiftService {
       const createdAt = new Date().toISOString()
       const gift: Gift = {
         id: requestId, latitude, longitude, createdAt, clue, riddle,
+        floor: cleanText(floor),
         note: cleanText(note),
         answers: splitAnswers(answer),
         locationName: 'Selected building',

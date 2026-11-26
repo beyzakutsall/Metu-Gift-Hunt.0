@@ -8,7 +8,6 @@ import type { Hunt, Reward } from '../../types/hunt'
 import { Alert } from '../common/Alert'
 import { Button } from '../common/Button'
 import { Input } from '../common/Input'
-import { PhotoPicker, type PreparedPhoto } from './PhotoPicker'
 
 interface Props {
   hunt: Hunt
@@ -20,8 +19,7 @@ interface Props {
 
 export function SolveForm({ hunt, fix, onSolved, onChanged, onEnded }: Props) {
   const [answer, setAnswer] = useState('')
-  const [photo, setPhoto] = useState<PreparedPhoto | null>(null)
-  const [errors, setErrors] = useState<{ answer?: string; photo?: string }>({})
+  const [errors, setErrors] = useState<{ answer?: string }>({})
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
@@ -30,10 +28,10 @@ export function SolveForm({ hunt, fix, onSolved, onChanged, onEnded }: Props) {
     event.preventDefault()
     if (inFlight.current) return
     setError('')
-    const invalid = { answer: guessError(answer), photo: photo ? undefined : 'Take a photo of the place.' }
+    const invalid = { answer: guessError(answer) }
     setErrors(invalid)
-    if (invalid.answer || !photo) {
-      document.getElementById(invalid.answer ? 'guess' : 'photo')?.focus()
+    if (invalid.answer) {
+      document.getElementById('guess')?.focus()
       return
     }
     if (!fix || Date.now() - fix.time > FIX_MAX_AGE_MS) {
@@ -45,12 +43,12 @@ export function SolveForm({ hunt, fix, onSolved, onChanged, onEnded }: Props) {
     setBusy(true)
     try {
       const { latitude, longitude, accuracy } = fix
-      onSolved(await huntService.solve(hunt.id, { latitude, longitude, accuracy, answer, photo: photo.base64 }))
+      onSolved(await huntService.solve(hunt.id, { latitude, longitude, accuracy, answer }))
     } catch (caught) {
       if (!(caught instanceof AuthError)) setError('Something went wrong. Please try again.')
       else if (['HUNT_FAILED', 'HUNT_ENDED', 'NOT_FOUND', 'UNAUTHENTICATED'].includes(caught.code)) onEnded(caught.message)
       else {
-        if (caught.field === 'answer' || caught.field === 'photo') setErrors({ [caught.field]: caught.message })
+        if (caught.field === 'answer') setErrors({ answer: caught.message })
         else setError(caught.message)
         if (caught.code === 'WRONG_ANSWER') onChanged()
       }
@@ -77,17 +75,8 @@ export function SolveForm({ hunt, fix, onSolved, onChanged, onEnded }: Props) {
           setErrors((previous) => ({ ...previous, answer: undefined }))
         }}
       />
-      <PhotoPicker
-        photo={photo}
-        error={errors.photo}
-        disabled={busy}
-        onChange={(next, problem) => {
-          setPhoto(next)
-          setErrors((previous) => ({ ...previous, photo: problem }))
-        }}
-      />
       <div aria-live="assertive">{error && <Alert tone="error">{error}</Alert>}</div>
-      <Button type="submit" loading={busy}>{busy ? 'Checking…' : 'Submit and claim the item'}</Button>
+      <Button type="submit" loading={busy}>{busy ? 'Checking…' : 'Answer the riddle'}</Button>
     </form>
   )
 }

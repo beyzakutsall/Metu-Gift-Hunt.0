@@ -5,10 +5,13 @@ export interface Hunt {
   location: { key: string; name: string; fullName: string; latitude: number; longitude: number }
   expiresAt: string
   arrived: boolean
-  /** Both null until the server has seen the student at the building. */
+  /** All null until the server has seen the student at the building. */
+  floor: string | null
   clue: string | null
   riddle: string | null
   attemptsLeft: number
+  /** Camera frames tried. The riddle opens after FALLBACK_MIN_FRAMES. */
+  framesTried: number
 }
 
 export interface Fix {
@@ -29,10 +32,17 @@ export interface Reward {
   note: string
 }
 
+/** How a camera frame went. Never a score: only how many matches in a row. */
+export type FrameResult =
+  | { found: Reward }
+  | { found: null; matched: boolean; streak: number; needed: number; framesTried: number }
+
 export interface HuntService {
   current(): Promise<{ hunt: Hunt | null; available: boolean }>
   start(): Promise<Hunt>
   checkIn(id: string, fix: Fix): Promise<CheckIn>
-  solve(id: string, input: Fix & { answer: string; photo: string }): Promise<Reward>
+  frame(id: string, input: Fix & { frame: string }): Promise<FrameResult>
+  /** The riddle, once the camera has had a fair try. */
+  solve(id: string, input: Fix & { answer: string }): Promise<Reward>
   giveUp(id: string): Promise<void>
 }

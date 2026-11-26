@@ -1,5 +1,7 @@
 # Görev: Gün 2, kamera ile yer doğrulama (MVP)
 
+> **Durum: yapıldı.** Kalan: sahada fotoğraflarla kalibrasyon ve Render'da hız ölçümü (CLAUDE.md yol haritası).
+
 Önce `CLAUDE.md`'yi oku. Bu görev onun Bölüm 1 ("Kamera eşleme tasarımı") ve Bölüm 3'teki (güvenlik değişmezleri) kurallarına uyar.
 Bu dosya ile CLAUDE.md çelişirse **mimari konusunda bu dosya geçerli** (aşağıdaki "Mimari kararı").
 

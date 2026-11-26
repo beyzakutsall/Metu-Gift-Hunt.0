@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 
-const STEPS = ['Go there', 'Get the clue', 'Solve it']
+const STEPS = ['Go there', 'Get the clue', 'Find the spot']
 
 /** `done` is how many steps are finished. */
 export function HuntSteps({ done }: { done: number }) {
